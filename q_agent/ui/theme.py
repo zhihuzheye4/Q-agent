@@ -314,6 +314,31 @@ QListWidget#SkillList::item:selected, QListWidget#MemoryList::item:selected {{
 QAbstractButton:focus, QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QListWidget:focus {{
     outline: 2px solid {COLOR_RING};
 }}
+QTextEdit:focus {{
+    outline: 2px solid {COLOR_RING};
+}}
+
+/* ===== Tooltip（透明背景，避免白色方块遮盖文字） ===== */
+QToolTip {{
+    background-color: transparent;
+    color: {COLOR_FOREGROUND};
+    border: none;
+    padding: 4px 8px;
+}}
+
+/* ===== 多行输入框（QTextEdit，长发言支持） ===== */
+QTextEdit#ChatInput {{
+    background-color: {COLOR_MUTED};
+    border: 1px solid {COLOR_BORDER};
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: {COLOR_FOREGROUND};
+    selection-background-color: {COLOR_ACCENT};
+}}
+QTextEdit#ChatInput:focus {{
+    border: 2px solid {COLOR_RING};
+    padding: 9px 13px;
+}}
 """
 
 

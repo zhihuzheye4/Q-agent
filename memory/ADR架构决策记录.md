@@ -189,3 +189,68 @@
   - 首屏预热策略留作可选优化（若首次显示抖动明显再加）
   - PyInstaller 打包：SVG 文件作为 datas 一起进 .exe，零额外依赖
 - **取代**：ADR-014 第 3 点（方案 C）改为方案 D；ADR-014 其余三点（预制调用 / 脚本省 token / 放弃 PNG 位图）保留不变
+
+---
+
+## ADR-017：UI 输入框动态高度策略
+
+**日期**：2026-06-19
+**状态**：采纳
+**取代**：无
+
+### 背景
+
+UI 改进第一轮把对话输入框从 `QLineEdit`（单行）改为 `QTextEdit`（多行），高度区间设为 [44, 200]px。但用 `setMinimumHeight + setMaximumHeight` 只是限制范围，初始固定为最小高度 44px，输入多行内容后输入框不会自动长高，内容溢出直接被滚动条吃掉——视觉上输入框仍是矮矮一条，长发言体验差。
+
+用户明确反馈："输入框高度应跟随输入内容动态改变"。
+
+### 选项
+
+**方案 A：固定高度 + 滚动条**
+- 设置一个固定高度（如 100px），多行内容靠内部滚动条消化
+- 优点：实现简单
+- 缺点：固定高度无法适配短/长发言——短发言浪费空间，长发言滚动条挤占视野
+
+**方案 B：高度跟随内容动态变化（采纳）**
+- 监听 `QTextEdit.document().documentLayout().documentSizeChanged` 信号
+- `_adjust_height()`：根据 `documentLayout().documentSize().height()` + 边距计算所需高度
+- 钳制到 `[INPUT_MIN_HEIGHT=44, INPUT_MAX_HEIGHT=200]` 区间
+- 用 `setFixedHeight()` 设置实际高度
+- 超过 max 后自动显示垂直滚动条（`ScrollBarAsNeeded` 策略）
+- 优点：短发言占 44px 不浪费，长发言自然增长直到 200px 触顶
+- 缺点：需手动写调整逻辑（约 6 行）
+
+**方案 C：QTextEdit 自带的 sizeHint 自然增长**
+- 不显式设 height，依赖 layout 的 sizeHint
+- 缺点：QTextEdit 的 sizeHint 不会随内容变化（默认返回 viewport 高度），需手动触发布局重算，等价于方案 B
+
+### 取舍
+
+选方案 B。理由：
+1. `documentSizeChanged` 信号是 Qt 文档系统提供的官方钩子，触发时机精确（内容变化即触发）
+2. 钳制区间 `[44, 200]` 是明确的视觉契约——44px 是单行舒适高度，200px 是输入框不超过消息流的比例上限
+3. 触顶后 `ScrollBarAsNeeded` 策略自动接管，用户可在 200px 内滚动浏览长输入
+4. 实测：初始 44 → 单行 44 → 5 行 82 → 30 行触顶 200 + 滚动条出现 → 清空回 44，符合预期
+
+### 实现要点
+
+```python
+# ChatInput.__init__ 末尾
+self.document().documentLayout().documentSizeChanged.connect(self._adjust_height)
+
+def _adjust_height(self) -> None:
+    doc_h = self.document().documentLayout().documentSize().toSize().height()
+    margins = self.contentsMargins()
+    needed = int(doc_h + margins.top() + margins.bottom() + 2)
+    clamped = max(INPUT_MIN_HEIGHT, min(needed, INPUT_MAX_HEIGHT))
+    if self.height() != clamped:
+        self.setFixedHeight(clamped)
+```
+
+`if self.height() != clamped` 守卫避免无变化时重复触发布局重算（防抖）。
+
+### 影响
+
+- 文件：`q_agent/ui/pages/chat_page.py`
+- 测试：手动验证（offscreen mode + processEvents），无新增单测（UI 渲染测试需 QApplication 实例，留手动测试）
+- .exe：v0.0.3 已包含此改进

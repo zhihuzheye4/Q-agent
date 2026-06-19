@@ -126,14 +126,14 @@ def test_chat_page_send_echos(qapp) -> None:  # noqa: ANN001
     w = MainWindow()
     chat = w.chat_page
     initial = len(chat._messages)
-    chat.input.setText("测试消息")
+    chat.input.setPlainText("测试消息")
     chat._on_send_clicked()
     assert len(chat._messages) == initial + 2, "应追加 user + ai 各一条"
     assert chat._messages[-2][0] == "user"
     assert chat._messages[-2][1] == "测试消息"
     assert chat._messages[-1][0] == "ai"
     assert "测试消息" in chat._messages[-1][1]
-    assert chat.input.text() == "", "发送后输入框应清空"
+    assert chat.input.toPlainText() == "", "发送后输入框应清空"
 
 
 def test_chat_page_send_disabled_on_empty(qapp) -> None:  # noqa: ANN001
@@ -142,7 +142,7 @@ def test_chat_page_send_disabled_on_empty(qapp) -> None:  # noqa: ANN001
 
     w = MainWindow()
     assert not w.chat_page.send_btn.isEnabled(), "空输入框应 disabled 发送按钮"
-    w.chat_page.input.setText("有内容")
+    w.chat_page.input.setPlainText("有内容")
     assert w.chat_page.send_btn.isEnabled(), "有内容应启用发送按钮"
     w.chat_page.input.clear()
     assert not w.chat_page.send_btn.isEnabled(), "清空后应再次 disabled"

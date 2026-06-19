@@ -9,3 +9,4 @@
 {"action": "add", "time": "2026-06-19", "name": "矢量图生成脚本", "tech": "scripts/generate_icons.py + PySide6.QtSvg + SVG sprite", "idea": "脚本预制省 AI token，方案 C 首次缓存矢量源不丢，PNG 转换按需使用"}
 {"action":"add","time":"2026-06-19","name":"UI 界面空壳","tech":"PySide6 + 方案 D QIcon 直接受 SVG","idea":"活的 UI 空壳 4 tab + 输入框/发送 + 设置面板 + 工具栏 + 菜单栏，无实际功能"}
 {"action":"add","time":"2026-06-19","name":"v0.0.1 .exe","tech":"PyInstaller --onefile --windowed --add-data","idea":"47MB 零外部依赖，分发零依赖硬规则首里程碑"}
+{"action":"add","time":"2026-06-19","name":"UI 输入框动态高度","tech":"QTextEdit + documentSizeChanged 信号 + [min,max] 钳制 setFixedHeight","idea":"输入框高度随内容增长，触顶 200px 显示滚动条，清空回 44px"}
