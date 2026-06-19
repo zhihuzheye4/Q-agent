@@ -1,1 +1,4 @@
-{"action":"add","time":"2026-06-19","name":"记忆系统骨架","tech":"L1/L2/L3权限分级 + 编年史兜底 + 脚本化思维导图","idea":"以权限分级防御Edit误删，珍贵记忆走append-only"}
+{"action": "add", "time": "2026-06-19", "name": "记忆系统骨架", "tech": "L1/L2/L3权限分级 + 编年史兜底 + 脚本化思维导图", "idea": "以权限分级防御Edit误删，珍贵记忆走append-only"}
+{"action": "add", "time": "2026-06-19", "name": "项目框架骨架", "tech": "Python 3.11+ argparse + ruff/mypy/pytest + 五层 stub", "idea": "永不沙箱+本地LLM优先+零第三方依赖起步"}
+{"action": "add", "time": "2026-06-19", "name": "echo 技能", "tech": "@skill 装饰器 + 函数签名即协议", "idea": "冒烟测试用，验证骨架可跑通"}
+{"action": "add", "time": "2026-06-19", "name": "工具调用层", "tech": "@tool 装饰器 + executor + safety 基本校验", "idea": "替代沙箱，仅输入校验非权限分级"}

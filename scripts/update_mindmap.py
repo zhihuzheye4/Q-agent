@@ -17,8 +17,8 @@ jsonl 每行一个事件，支持两种 action：
 """
 
 import json
-from pathlib import Path
 from collections import OrderedDict
+from pathlib import Path
 
 BASE = Path(__file__).resolve().parent.parent
 SRC = BASE / "memory" / "思维导图数据.jsonl"

@@ -22,6 +22,13 @@ Thumbs.db
 *.swo
 *~
 
+# 工具链缓存
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+
 # 记忆系统 - 排除膨胀文件，保留架构性文件
 memory/归档/
 memory/对话记录_*.md
