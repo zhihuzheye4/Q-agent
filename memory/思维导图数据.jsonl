@@ -2,3 +2,6 @@
 {"action": "add", "time": "2026-06-19", "name": "项目框架骨架", "tech": "Python 3.11+ argparse + ruff/mypy/pytest + 五层 stub", "idea": "永不沙箱+本地LLM优先+零第三方依赖起步"}
 {"action": "add", "time": "2026-06-19", "name": "echo 技能", "tech": "@skill 装饰器 + 函数签名即协议", "idea": "冒烟测试用，验证骨架可跑通"}
 {"action": "add", "time": "2026-06-19", "name": "工具调用层", "tech": "@tool 装饰器 + executor + safety 基本校验", "idea": "替代沙箱，仅输入校验非权限分级"}
+{"action": "add", "time": "2026-06-19", "name": "可执行安装包机制", "tech": "PyInstaller --onefile + 安装包/v{版本}/ 子目录 + .exe 不入 git", "idea": "每里程碑打 .exe 可分发，历史版本长期保留"}
+{"action": "add", "time": "2026-06-19", "name": "UI 矢量图资源隔离", "tech": "q_agent/assets/icons/ 包内 + SVG + 命名 图标名-状态", "idea": "UI 资源与开发文档物理分离，随包自动分发"}
+{"action": "add", "time": "2026-06-19", "name": "指令执行自由度规则", "tech": "全局记忆 + CLAUDE.md 第十九节", "idea": "用户指令默认非强制，AI 带判断力，明确措辞才字面执行"}

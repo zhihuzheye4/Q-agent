@@ -5,7 +5,7 @@
 - 项目名：Q-agent
 - 路径：`G:\agent`
 - 仓库：https://github.com/zhihuzheye4/Q-agent
-- 语言：Python 3.11+
+- 语言：Python 3.10+
 - 定位：类似 Claude Code 的桌面端 AI 工具，纯软件形式对接本地 LLM，让 LLM 指令被软件理解并执行
 - 五层结构：对话/交互 → 编排/规划 → 记忆 → 技能/工具 → 工具调用层
 - 关键约束：**永不沙箱**（仅保留基本输入校验）、本地 LLM 优先、零第三方依赖起步
@@ -247,3 +247,36 @@ commit 前必须：`ruff check . && ruff format --check . && mypy q_agent && pyt
 - 每次讨论后生成具体方案，存到 `memory/方案/方案_YYYY-MM-DD_HHmm_主题.md`（L1 不可读）
 - AI 执行时不回读方案文件，基于当前会话上下文执行
 - 执行完毕后归档到 `memory/方案/已执行/`
+
+## 十七、可执行安装包规则
+
+- **每个可运行里程碑必须生成一个 `.exe` 放到 `安装包/` 文件夹**（与 commit 同步）
+- 子目录按版本号命名：`安装包/v0.0.1/`、`安装包/v0.0.2/` …
+- 打包工具：PyInstaller（dev 依赖，装到 F 盘 venv，不污染 C 盘，不违反"零第三方运行时依赖"原则）
+- 打包入口：`q_agent/cli.py` 的 `main()`
+- 打包命令（F 盘 venv 内执行）：
+  ```bash
+  pyinstaller --distpath 安装包 --workpath build --name Q-agent --onefile q_agent/cli.py
+  ```
+  然后把 `安装包/Q-agent/` 重命名为 `安装包/v{版本}/`
+- `.exe` 二进制不入 git（已在 `.gitignore` 忽略），目录结构靠 `.gitkeep` + `README.md` 保留
+- 历史版本长期保留，不删旧版本
+- 生成后更新 `安装包/README.md` 的版本历史表
+
+## 十八、UI 矢量图资源规则
+
+- **UI 界面调用的所有矢量图存放到 `q_agent/assets/icons/`**
+- 该文件夹**只存** UI 界面调用的矢量图（SVG 格式）
+- **禁止存放**：位图（PNG/JPG）、字体、音频、配置文件、开发文档图
+- 开发文档用的图放 `memory/` 或根目录，与 UI 资源物理隔离
+- 命名规范：`图标名-状态.svg`（如 `send-active.svg`、`send-disabled.svg`）
+- `q_agent/assets/` 是包内资源，PyInstaller 打包时会一起进 `.exe`
+- UI 代码访问方式：`importlib.resources` 或 `pathlib.Path(__file__).parent / "assets"`
+- 当前为空目录（含 `.gitkeep`），等 UI 界面实现时再填充
+
+## 十九、指令执行自由度
+
+- 用户下达的指令默认有自由选择空间，非强制按字面执行
+- AI 在执行时带判断力：路径/工具/命名等细节可自定，并在执行后说明选择
+- 大决策（引入新依赖、改变架构、不可逆操作）仍需先展示方案让用户否决
+- 用户用"必须/一定/严格按/不许"等明确措辞 = 强制字面执行，无选择空间

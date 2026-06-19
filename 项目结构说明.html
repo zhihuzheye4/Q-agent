@@ -157,6 +157,15 @@
     <div class="node file"><span class="row"><span class="toggle"></span><span class="name file">项目结构说明.html</span><span class="desc">本文件 · 项目结构可视化</span></span></div>
 
     <div class="node dir">
+      <span class="row"><span class="toggle"></span><span class="name dir">安装包/</span><span class="desc">可执行 .exe 长期存放 · 每个里程碑一个版本子目录</span></span>
+      <div class="children">
+        <div class="node file"><span class="row"><span class="toggle"></span><span class="name file">.gitkeep</span><span class="desc">占位保留目录结构</span></span></div>
+        <div class="node file"><span class="row"><span class="toggle"></span><span class="name file">README.md</span><span class="desc">本目录用途 + 版本历史表</span></span></div>
+        <div class="node file"><span class="row"><span class="toggle"></span><span class="name file">v0.0.1/</span><span class="badge badge-auto">auto</span><span class="desc">待生成 · PyInstaller 打包产物（.exe 不入 git）</span></span></div>
+      </div>
+    </div>
+
+    <div class="node dir">
       <span class="row"><span class="toggle"></span><span class="name dir">q_agent/</span><span class="desc">主包 · 软件本体 · 五层架构</span></span>
       <div class="children">
 
@@ -206,6 +215,19 @@
               <div class="children">
                 <div class="node file"><span class="row"><span class="toggle"></span><span class="name file">__init__.py</span><span class="desc">导入 echo 触发注册</span></span></div>
                 <div class="node file"><span class="row"><span class="toggle"></span><span class="name file">echo.py</span><span class="badge badge-ready">ready</span><span class="desc">内置 echo 技能 · 原样回显 · 冒烟用</span></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="node dir">
+          <span class="row"><span class="toggle"></span><span class="name dir">assets/</span><span class="desc">包内资源 · PyInstaller 一起打包进 .exe</span></span>
+          <div class="children">
+            <div class="node file"><span class="row"><span class="toggle"></span><span class="name file">README.md</span><span class="desc">资源目录说明 · 打包访问方式</span></span></div>
+            <div class="node dir">
+              <span class="row"><span class="toggle"></span><span class="name dir">icons/</span><span class="desc">UI 矢量图 · 只存 UI 调用的 SVG · 不混其他资源</span></span>
+              <div class="children">
+                <div class="node file"><span class="row"><span class="toggle"></span><span class="name file">.gitkeep</span><span class="desc">占位 · 等 UI 实现时填充 SVG</span></span></div>
               </div>
             </div>
           </div>

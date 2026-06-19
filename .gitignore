@@ -29,6 +29,11 @@ Thumbs.db
 .ruff_cache/
 htmlcov/
 
+# 安装包产物：.exe 不入版本库，目录结构靠 .gitkeep + README 保留
+安装包/*
+!安装包/.gitkeep
+!安装包/README.md
+
 # 记忆系统 - 排除膨胀文件，保留架构性文件
 memory/归档/
 memory/对话记录_*.md
