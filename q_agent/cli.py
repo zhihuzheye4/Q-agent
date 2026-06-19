@@ -20,7 +20,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI 主入口。"""
+    """CLI 主入口。
+
+    双击 .exe（无参数）默认启动 UI——GUI 应用标准行为。
+    避免 --windowed 模式下 argparse 报错时 sys.stderr 为 None 导致崩溃。
+    """
+    if argv is None:
+        import sys
+
+        argv = sys.argv[1:]
+    if not argv:
+        argv = ["ui"]
     args = build_parser().parse_args(argv)
     if args.cmd == "version":
         from q_agent import __version__
