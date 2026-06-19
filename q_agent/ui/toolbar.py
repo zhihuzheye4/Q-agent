@@ -34,16 +34,22 @@ class Toolbar(QToolBar):
 
     def _build_actions(self) -> None:
         new_chat = self.addAction(load_icon("new-chat"), "新建对话")
+        new_chat.setToolTip("新建对话（清空当前消息流，开始新对话）")
+        new_chat.setStatusTip("新建对话")
         new_chat.triggered.connect(
             lambda: self._status_callback("已点击：新建对话（活 UI 空壳，无实际行为）")
         )
 
         clear = self.addAction(load_icon("clear"), "清空")
+        clear.setToolTip("清空当前对话消息流")
+        clear.setStatusTip("清空对话")
         clear.triggered.connect(
             lambda: self._status_callback("已点击：清空（活 UI 空壳，无实际行为）")
         )
 
         about = self.addAction(load_icon("about"), "关于")
+        about.setToolTip("关于 Q-agent（版本信息与功能说明）")
+        about.setStatusTip("关于 Q-agent")
         about.triggered.connect(
             lambda: self._status_callback("已点击：关于（活 UI 空壳，无实际行为）")
         )
