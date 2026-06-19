@@ -21,3 +21,8 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# 记忆系统 - 排除膨胀文件，保留架构性文件
+memory/归档/
+memory/对话记录_*.md
+memory/提问回答记录_*.md
