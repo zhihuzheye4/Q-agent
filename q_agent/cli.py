@@ -15,6 +15,7 @@ def build_parser() -> argparse.ArgumentParser:
     chat.add_argument("text", help="用户输入文本")
     sub.add_parser("skills", help="列出已注册技能")
     sub.add_parser("version", help="显示版本")
+    sub.add_parser("ui", help="启动 UI 界面（PySide6）")
     return parser
 
 
@@ -26,6 +27,10 @@ def main(argv: list[str] | None = None) -> int:
 
         print(f"Q-agent {__version__}")
         return 0
+    if args.cmd == "ui":
+        from q_agent.ui.main_window import run_app
+
+        return run_app()
     orch = Orchestrator(memory=RuntimeMemory())
     if args.cmd == "chat":
         print(orch.handle(args.text))
@@ -33,3 +38,9 @@ def main(argv: list[str] | None = None) -> int:
         for s in orch.list_skills():
             print(f"{s.name:<15} {s.desc}")
     return 0
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())

@@ -292,15 +292,98 @@ def icon_ai_brain_active() -> str:
     return render_svg(body, defs=defs)
 
 
+# ===== UI 界面图标（Q-agent 实际使用的，参考 Lucide / Feather 风格） =====
+
+
+def icon_chat_active() -> str:
+    """对话 tab：消息气泡（Lucide message-circle 简化）"""
+    body = path(
+        "M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"  # noqa: E501
+    )
+    return render_svg(body)
+
+
+def icon_skills_active() -> str:
+    """技能 tab：星形（Lucide sparkles 简化，象征能力/技能）"""
+    body = group(
+        [
+            path(
+                "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"  # noqa: E501
+            ),
+            path("M20 3v4"),
+            path("M22 5h-4"),
+            path("M4 17v2"),
+            path("M5 18H3"),
+        ]
+    )
+    return render_svg(body)
+
+
+def icon_memory_active() -> str:
+    """记忆 tab：数据库柱体（Lucide database 简化）"""
+    body = group(
+        [
+            path("M12 2C6.5 2 2 3.6 2 5.5S6.5 9 12 9s10-1.6 10-3.5S17.5 2 12 2z"),
+            path("M2 5.5v6C2 13.4 6.5 15 12 15s10-1.6 10-3.5v-6"),
+            path("M2 11.5v6C2 19.4 6.5 21 12 21s10-1.6 10-3.5v-6"),
+        ]
+    )
+    return render_svg(body)
+
+
+def icon_new_chat_active() -> str:
+    """工具栏：新建对话（加号 + 消息气泡）"""
+    body = group(
+        [
+            path("M12 5v14"),
+            path("M5 12h14"),
+        ]
+    )
+    return render_svg(body)
+
+
+def icon_clear_active() -> str:
+    """工具栏：清空（Lucide trash 简化）"""
+    body = group(
+        [
+            path("M3 6h18"),
+            path("M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"),
+            path("M10 11v6"),
+            path("M14 11v6"),
+        ]
+    )
+    return render_svg(body)
+
+
+def icon_about_active() -> str:
+    """工具栏：关于（Lucide info 圆 + i）"""
+    body = group(
+        [
+            circle(12, 12, 10),
+            path("M12 16v-4"),
+            path("M12 8h.01"),
+        ]
+    )
+    return render_svg(body)
+
+
 # ===== 图标注册表 =====
 
 
 ICONS: list[tuple[str, str, Callable[[], str]]] = [
+    # 5 级递进复杂度测试图标（保留作测试样本）
     ("circle-active", "L1", icon_circle_active),
     ("send-active", "L2", icon_send_active),
     ("settings-active", "L3", icon_settings_active),
     ("cloud-sync-active", "L4", icon_cloud_sync_active),
     ("ai-brain-active", "L5", icon_ai_brain_active),
+    # UI 界面实际调用图标
+    ("chat-active", "UI", icon_chat_active),
+    ("skills-active", "UI", icon_skills_active),
+    ("memory-active", "UI", icon_memory_active),
+    ("new-chat-active", "UI", icon_new_chat_active),
+    ("clear-active", "UI", icon_clear_active),
+    ("about-active", "UI", icon_about_active),
 ]
 
 

@@ -1,0 +1,61 @@
+{
+  "version": "0.0.1",
+  "viewBox": "0 0 24 24",
+  "icons": [
+    {
+      "name": "circle-active",
+      "file": "circle-active.svg",
+      "level": "L1"
+    },
+    {
+      "name": "send-active",
+      "file": "send-active.svg",
+      "level": "L2"
+    },
+    {
+      "name": "settings-active",
+      "file": "settings-active.svg",
+      "level": "L3"
+    },
+    {
+      "name": "cloud-sync-active",
+      "file": "cloud-sync-active.svg",
+      "level": "L4"
+    },
+    {
+      "name": "ai-brain-active",
+      "file": "ai-brain-active.svg",
+      "level": "L5"
+    },
+    {
+      "name": "chat-active",
+      "file": "chat-active.svg",
+      "level": "UI"
+    },
+    {
+      "name": "skills-active",
+      "file": "skills-active.svg",
+      "level": "UI"
+    },
+    {
+      "name": "memory-active",
+      "file": "memory-active.svg",
+      "level": "UI"
+    },
+    {
+      "name": "new-chat-active",
+      "file": "new-chat-active.svg",
+      "level": "UI"
+    },
+    {
+      "name": "clear-active",
+      "file": "clear-active.svg",
+      "level": "UI"
+    },
+    {
+      "name": "about-active",
+      "file": "about-active.svg",
+      "level": "UI"
+    }
+  ]
+}
