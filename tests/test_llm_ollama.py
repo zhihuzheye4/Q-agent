@@ -308,7 +308,7 @@ def test_chat_full_via_stream() -> None:
 
 
 def test_release_model_happy() -> None:
-    """release_model POST /api/generate keep_alive=0 正常调用不抛错。"""
+    """release_model POST /api/generate keep_alive=0 正常调用不抛错（verify=False 跳过验证）。"""
     captured: list[bytes] = []
 
     def fake_urlopen(req: object, **kw: object) -> _FakeResponse:
@@ -316,13 +316,92 @@ def test_release_model_happy() -> None:
         return _FakeResponse(b'{"done":true}')
 
     with patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=fake_urlopen):
-        release_model("qwen2.5:7b")
+        release_model("qwen2.5:7b", verify=False)
     # 验证 payload 含 keep_alive=0
     assert len(captured) == 1
     import json as _json
 
     payload = _json.loads(captured[0].decode("utf-8"))
     assert payload == {"model": "qwen2.5:7b", "keep_alive": 0}
+
+
+def test_release_model_verifies_unload_success() -> None:
+    """v0.0.11 verify=True：generate OK + /api/ps 返回空 → 通过（不抛错）。"""
+    calls: list[str] = []
+
+    def fake_urlopen(req: object, **kw: object) -> _FakeResponse:
+        # req 可能是 Request 对象（generate，有 full_url）或字符串（/api/ps）
+        url = req if isinstance(req, str) else req.full_url  # type: ignore[union-attr]
+        calls.append(url)
+        if "/api/ps" in url:
+            return _FakeResponse(b'{"models":[]}')
+        return _FakeResponse(b'{"done":true,"done_reason":"unload"}')
+
+    with patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=fake_urlopen):
+        release_model("qwen2.5:7b")  # verify=True 默认
+    # 应该有 2 次调用：generate + ps
+    assert any("/api/generate" in c for c in calls)
+    assert any("/api/ps" in c for c in calls)
+
+
+def test_release_model_verifies_unload_still_loaded() -> None:
+    """v0.0.11 verify=True：generate OK + /api/ps 仍含该模型（3 次轮询后）→ OllamaError。"""
+
+    def fake_urlopen(req: object, **kw: object) -> _FakeResponse:
+        url = req if isinstance(req, str) else req.full_url  # type: ignore[union-attr]
+        if "/api/ps" in url:
+            # 模型仍在内存
+            return _FakeResponse(b'{"models":[{"name":"qwen2.5:7b"}]}')
+        return _FakeResponse(b'{"done":true,"done_reason":"unload"}')
+
+    with (
+        patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=fake_urlopen),
+        patch("q_agent.llm.ollama.time.sleep", return_value=None),  # 跳过 sleep 加速测试
+        pytest.raises(OllamaError) as exc,
+    ):
+        release_model("qwen2.5:7b", verify_attempts=3, verify_interval=0.0)
+    assert "仍在内存" in str(exc.value) or "卸载" in str(exc.value)
+
+
+def test_release_model_verify_retries_until_success() -> None:
+    """v0.0.11 verify 轮询：前 2 次 /api/ps 含模型，第 3 次空 → 通过。"""
+    ps_responses = [
+        b'{"models":[{"name":"qwen2.5:7b"}]}',
+        b'{"models":[{"name":"qwen2.5:7b"}]}',
+        b'{"models":[]}',
+    ]
+    ps_idx = {"i": 0}
+
+    def fake_urlopen(req: object, **kw: object) -> _FakeResponse:
+        url = req if isinstance(req, str) else req.full_url  # type: ignore[union-attr]
+        if "/api/ps" in url:
+            i = ps_idx["i"]
+            ps_idx["i"] += 1
+            return _FakeResponse(ps_responses[min(i, len(ps_responses) - 1)])
+        return _FakeResponse(b'{"done":true,"done_reason":"unload"}')
+
+    with (
+        patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=fake_urlopen),
+        patch("q_agent.llm.ollama.time.sleep", return_value=None),
+    ):
+        release_model("qwen2.5:7b", verify_attempts=3, verify_interval=0.0)
+    # 第 3 次 /api/ps 才返回空 → 通过（不抛错）
+    assert ps_idx["i"] == 3
+
+
+def test_release_model_verify_disabled_skips_ps() -> None:
+    """v0.0.11 verify=False：只调 generate，不调 /api/ps。"""
+    urls: list[str] = []
+
+    def fake_urlopen(req: object, **kw: object) -> _FakeResponse:
+        url = req if isinstance(req, str) else req.full_url  # type: ignore[union-attr]
+        urls.append(url)
+        return _FakeResponse(b'{"done":true}')
+
+    with patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=fake_urlopen):
+        release_model("m", verify=False)
+    assert all("/api/ps" not in u for u in urls)
+    assert any("/api/generate" in u for u in urls)
 
 
 def test_release_model_http_error() -> None:

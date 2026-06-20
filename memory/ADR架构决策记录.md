@@ -538,3 +538,67 @@ v0.0.10 加加载指示器填补空等期。
 - 主题切换时 LoadingDots 配色变体（当前固定 HSV 流动）
 - 字体/字号优化（当前 dot_size=8 固定，不随 DPI 缩放）
 
+
+## ADR-025：release_model 卸载验证（/api/ps 轮询确认）
+
+**日期**：2026-06-20
+**状态**：已实施（v0.0.11）
+**关联**：ADR-023（v0.0.9 内存释放，本 ADR 补足"卸载是否真的生效"的可信反馈）
+
+### 背景
+
+v0.0.9 实现内存释放功能后，用户报告"点了释放按钮选 Yes，但任务管理器 GPU 占用依然存在，没有被释放"。
+
+排查发现：
+- 代码本身工作正常：curl 直接调 `/api/generate keep_alive=0` → `/api/ps` 立即变空，Python `release_model()` 同样工作
+- `nvidia-smi` 显示 VRAM 从 5.6GB 降到 1GB（剩余 1GB 是 explorer/NVIDIA Overlay 等系统进程）
+- 真正原因：**Ollama 进程级 CUDA context 不立即归还 OS**——`/api/ps` 显示模型已卸载（Ollama 内部确实释放了模型权重），`nvidia-smi` 显示 VRAM 已归还 OS，但**任务管理器看 ollama.exe 进程的"专用 GPU 内存"列可能仍显示几 GB 占用**，因为进程级 CUDA pool 不立即归还（需要等一段时间或进程退出）
+
+用户看任务管理器 GPU 占用"依然存在"是误判，但 v0.0.9 状态栏只说"已释放 XXX 内存"过于笼统，没有给用户**可信的"真的卸载了"的反馈**。
+
+### 决策
+
+在 `release_model` 内部加 **`/api/ps` 验证步骤**：
+
+1. 调 POST /api/generate keep_alive=0 触发卸载（v0.0.9 原逻辑）
+2. 立即调 GET /api/ps 检查模型是否还在加载列表
+3. 若还在，sleep 300ms 后重试，最多 3 次
+4. 3 次后仍在 → 抛 `OllamaError("Ollama 接受卸载请求但 XXX 仍在内存（可能正在生成中，请稍后重试）")`
+5. 3 次内卸载成功 → 正常返回
+
+状态栏文案改为：
+- ✅ 成功：`已卸载 XXX 出 Ollama（API 验证通过，VRAM 已归还；任务管理器进程级 GPU 内存可能延迟显示）`
+- ❌ 失败：`释放失败：Ollama 接受卸载请求但 XXX 仍在内存（可能正在生成中，请稍后重试）`
+
+### 实施
+
+- `q_agent/llm/ollama.py`：
+  - 新增 `_is_model_loaded(model, host, timeout) -> bool` 辅助函数，调 GET /api/ps 检查模型是否在加载列表
+  - `release_model` 加 4 个新参数：`verify: bool = True` / `verify_attempts: int = 3` / `verify_interval: float = 0.3` / `timeout` 已存在
+  - 卸载请求成功后，若 verify=True 则轮询 /api/ps，全部尝试后仍在 → 抛 OllamaError
+  - import `time` 用于 sleep
+- `q_agent/ui/toolbar.py`：
+  - `_on_released` 状态栏文案明确说明"API 验证通过，VRAM 已归还，任务管理器进程级 GPU 内存可能延迟显示"
+  - `_on_release_failed` 文档说明区分"连接失败"与"卸载未生效"两种语义
+- 测试 5 例新增（test_llm_ollama.py）：
+  - test_release_model_verifies_unload_success（generate OK + /api/ps 空 → 通过）
+  - test_release_model_verifies_unload_still_loaded（3 次轮询后仍含模型 → OllamaError）
+  - test_release_model_verify_retries_until_success（前 2 次含模型 + 第 3 次空 → 通过，验证轮询）
+  - test_release_model_verify_disabled_skips_ps（verify=False 只调 generate）
+  - 原 test_release_model_happy 改用 verify=False 跳过验证专门测 generate payload
+
+### 取舍
+
+- **轮询而非单次验证**：Ollama 卸载 API 返回快但内部清理有几十毫秒延迟，单次 /api/ps 可能仍含模型。300ms 间隔 × 3 次覆盖 0.9s 内的卸载完成，足以确认。
+- **`verify` 默认 True 但可关闭**：编排层非 UI 场景可能不需要验证（如批量卸载），保留 verify=False 开关。
+- **失败抛错而非返回 bool**：让 UI 走 `_on_release_failed` 分支统一处理，文案区分"连接失败"与"卸载未生效"两种语义，用户能判断是网络问题还是模型在生成中。
+- **不解决"进程级 CUDA 不归还"**：这是 Ollama 已知行为，我们无法控制。通过状态栏文案明确告知用户"VRAM 已归还，任务管理器进程级 GPU 内存可能延迟显示"，避免用户误判功能失效。
+- **不立即重试卸载**：如果模型正在生成中，重试卸载无意义（Ollama 会等当前生成完成才卸载）。让用户手动稍后重试更合理。
+
+### 不在范围内（v0.0.12+）
+
+- 取消按钮接 ChatWorker.stop()（加载中可点取消，避免用户在生成中点释放而困惑）
+- 加载时长统计 + 慢响应警告（如 5s 无 chunk 提示"Ollama 响应慢"）
+- 释放成功后下拉框不选中此模型（当前保留选中态，下次发送会重新加载）
+- Ollama 进程级 CUDA 彻底归还（需 Ollama 自身改进，非本项目可控）
+

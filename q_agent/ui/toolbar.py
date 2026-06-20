@@ -351,8 +351,16 @@ class Toolbar(QToolBar):
         self._release_worker.start()
 
     def _on_released(self, model: str) -> None:
-        """释放成功 → 状态栏提示 + emit model_released（chat_page 可监听清 pending）。"""
-        self._status_callback(f"已释放 {model} 内存（下次需要时在下拉框重新选择）")
+        """释放成功 → 状态栏提示 + emit model_released（chat_page 可监听清 pending）。
+
+        v0.0.11 起 release_model 内部用 /api/ps 验证模型确实卸载，状态栏文案明确说明
+        "Ollama API 验证通过"，避免用户看到"已释放"但任务管理器 GPU 占用未变的疑惑
+        （Ollama 进程级 CUDA context 不立即归还 OS 是已知行为，不影响实际卸载）。
+        """
+        self._status_callback(
+            f"已卸载 {model} 出 Ollama（API 验证通过，VRAM 已归还；"
+            "任务管理器进程级 GPU 内存可能延迟显示）"
+        )
         self.model_released.emit(model)
         # 释放后下拉框不再选中此模型（用户需重新选择）；保留 combo 选中态以维持 group 信号
         # 但发送按钮需要重新评估——当前 group 仍是 local/ollama-cloud，输入框非空仍可发送
@@ -361,7 +369,11 @@ class Toolbar(QToolBar):
         self.release_btn.setEnabled(group in ("local", "ollama-cloud"))
 
     def _on_release_failed(self, msg: str) -> None:
-        """释放失败 → 状态栏错误提示。"""
+        """释放失败 → 状态栏错误提示。
+
+        v0.0.11 起 release_model 卸载未生效（/api/ps 仍含该模型）也走此分支，
+        文案区分"连接失败"与"卸载未生效"两种语义。
+        """
         self._status_callback(f"释放失败：{msg}")
         group = self.current_model_group()
         self.release_btn.setEnabled(group in ("local", "ollama-cloud"))

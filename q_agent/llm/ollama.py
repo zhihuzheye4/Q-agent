@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import socket
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
@@ -111,23 +112,84 @@ def list_models(
     return entries
 
 
+def _is_model_loaded(
+    model: str,
+    host: str = "http://localhost:11434",
+    timeout: float = 5.0,
+) -> bool:
+    """查 /api/ps 判断指定模型当前是否在 Ollama 内存中。
+
+    /api/ps 返回 {"models": [...]}，列出当前已加载（在 RAM/VRAM）的模型。
+    用于 release_model 卸载后验证模型确实移除。
+
+    Args:
+        model: 模型名
+        host: Ollama 服务地址
+        timeout: 网络超时秒数
+
+    Returns:
+        True 表示模型仍在 Ollama 内存；False 表示已卸载或从未加载
+
+    Raises:
+        OllamaError: 连接/HTTP/JSON 错误（验证步骤失败时抛出，调用方决定如何处理）
+    """
+    url = host.rstrip("/") + "/api/ps"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        raise OllamaError(f"Ollama 返回 HTTP {e.code}：{e.reason}") from e
+    except urllib.error.URLError as e:
+        reason = e.reason
+        if isinstance(reason, socket.timeout) or "timed out" in str(reason).lower():
+            raise OllamaError(f"验证卸载时连接 Ollama 超时（{timeout}s）") from e
+        raise OllamaError(f"验证卸载时无法连接 Ollama：{reason}") from e
+    except TimeoutError as e:
+        raise OllamaError(f"验证卸载时连接 Ollama 超时（{timeout}s）") from e
+
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError as e:
+        raise OllamaError(f"Ollama /api/ps 响应非合法 JSON：{e}") from e
+
+    loaded = data.get("models", [])
+    if not isinstance(loaded, list):
+        return False
+    for item in loaded:
+        if isinstance(item, dict):
+            name = item.get("name") or item.get("model")
+            if isinstance(name, str) and name == model:
+                return True
+    return False
+
+
 def release_model(
     model: str,
     host: str = "http://localhost:11434",
     timeout: float = 30.0,
+    verify: bool = True,
+    verify_attempts: int = 3,
+    verify_interval: float = 0.3,
 ) -> None:
     """释放指定模型的内存（卸载出 Ollama 进程 RAM）。
 
     通过 POST /api/generate body={"model":..., "keep_alive": 0} 触发 Ollama
     在当前生成完成后立即卸载模型权重。如果模型没在内存，调用是 no-op。
 
+    v0.0.11 起加 verify 步骤：调 keep_alive=0 后，轮询 GET /api/ps 确认模型确实
+    从加载列表移除。verify_attempts 次后仍在 → 抛 OllamaError 明确提示"卸载未生效"，
+    让 UI 状态栏能给出可信反馈（避免用户看到"已释放"但 GPU 占用未变的疑惑）。
+
     Args:
         model: 模型名（如 "qwen2.5:7b"）
         host: Ollama 服务地址
         timeout: 网络超时秒数，默认 30s（生成可能慢，比 list_models 的 2s 长）
+        verify: 是否在卸载请求后调 /api/ps 验证（默认 True）
+        verify_attempts: 验证重试次数，默认 3（间隔 verify_interval 秒）
+        verify_interval: 每次验证间隔秒数，默认 0.3
 
     Raises:
-        OllamaError: 连接拒绝 / 超时 / HTTP 错误 / JSON 解析失败
+        OllamaError: 连接拒绝 / 超时 / HTTP 错误 / JSON 解析失败 / 卸载未生效
     """
     url = host.rstrip("/") + "/api/generate"
     payload = json.dumps({"model": model, "keep_alive": 0}).encode("utf-8")
@@ -146,6 +208,17 @@ def release_model(
     except TimeoutError as e:
         msg = f"连接 Ollama 超时（{timeout}s）：请确认服务运行于 {host}"
         raise OllamaError(msg) from e
+
+    if not verify:
+        return
+
+    # 验证卸载：轮询 /api/ps 确认模型已移除
+    for _ in range(verify_attempts):
+        if not _is_model_loaded(model, host, timeout=min(timeout, 5.0)):
+            return  # 已卸载
+        time.sleep(verify_interval)
+    # 全部尝试后仍在 → 抛错让 UI 给明确反馈
+    raise OllamaError(f"Ollama 接受卸载请求但 {model} 仍在内存（可能正在生成中，请稍后重试）")
 
 
 class OllamaClient(LLMClient):
