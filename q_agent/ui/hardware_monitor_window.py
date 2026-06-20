@@ -37,8 +37,10 @@ from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
 from q_agent.ui.hardware_monitor import (
+    COLOR_CELL_BG,
     COLOR_GRID,
     COLOR_NA,
+    COLOR_PLOT_BG,
     COLOR_TEXT,
     HISTORY_SECONDS,
     METRICS,
@@ -85,13 +87,18 @@ class MonitorCell(QWidget):
         self.update()
 
     def paintEvent(self, event: QPaintEvent) -> None:  # noqa: ANN001, ARG002
-        """自绘：顶部 20px 图例（色块 + 名称 + 当前数值）+ 下方折线图。"""
+        """自绘：顶部 20px 图例（色块 + 名称 + 当前数值）+ 下方折线图（含 y 轴）。
+
+        v0.0.15 修订：
+        - plot 坐标系背景用 COLOR_PLOT_BG（与 cell 整体背景区分）
+        - 加 y 轴：左侧 28px 留给刻度标签（0/25/50/75/100 + 单位）+ 竖线
+        """
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
 
-        # 背景（与主窗口同色，避免突兀）
-        painter.fillRect(0, 0, w, h, QColor("#0F172A"))
+        # cell 整体背景
+        painter.fillRect(0, 0, w, h, QColor(COLOR_CELL_BG))
 
         # 顶部图例（20px）
         legend_h = 20
@@ -117,17 +124,32 @@ class MonitorCell(QWidget):
         text = f"{self._label}  {last_str}"
         painter.drawText(22, legend_y + 10, text)
 
-        # 折线图区域
+        # 折线图区域：左侧 28px 留给 y 轴刻度标签
         plot_y = legend_h + 4
         plot_h = h - plot_y - 4
-        plot_w = w - 16
-        plot_x = 8
+        axis_w = 28
+        plot_x = 8 + axis_w
+        plot_w = w - 16 - axis_w
 
-        # 网格线（25%/50%/75%）
-        painter.setPen(QColor(COLOR_GRID))
-        for pct in (25, 50, 75):
+        # plot 坐标系背景（与 cell 整体背景区分）
+        painter.fillRect(plot_x, plot_y, plot_w, plot_h, QColor(COLOR_PLOT_BG))
+
+        # y 轴刻度标签 + 网格线（0/25/50/75/100）
+        painter.setPen(QColor(COLOR_TEXT))
+        painter.setFont(font)
+        for pct in (0, 25, 50, 75, 100):
             y = plot_y + int(plot_h * (1 - pct / 100))
+            # 刻度标签（左侧）
+            label = f"{pct}°" if self._unit == "°C" else f"{pct}"
+            painter.drawText(8, y + 3, label)
+            # 网格线
+            painter.setPen(QColor(COLOR_GRID))
             painter.drawLine(plot_x, y, plot_x + plot_w, y)
+            painter.setPen(QColor(COLOR_TEXT))
+
+        # y 轴线（左侧竖线）
+        painter.setPen(QColor(COLOR_GRID))
+        painter.drawLine(plot_x, plot_y, plot_x, plot_y + plot_h)
 
         # 折线（None 段断开）
         self._draw_line(painter, self._history, self._color, plot_x, plot_y, plot_w, plot_h)

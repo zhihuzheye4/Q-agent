@@ -49,18 +49,21 @@ COLOR_RAM = "#F97316"  # 橙
 COLOR_CPU_TEMP = "#94A3B8"  # 灰蓝（CPU 温度，Windows N/A）
 COLOR_GPU_TEMP = "#EF4444"  # 红（GPU 温度）
 COLOR_NA = "#475569"  # 灰（无数据占位线）
-COLOR_GRID = "#1E293B"  # 网格线
-COLOR_TEXT = "#94A3B8"  # 图例文本
+COLOR_GRID = "#334155"  # 网格线（v0.0.15 修订加深，配合 plot 背景区分）
+COLOR_TEXT = "#94A3B8"  # 图例文本 / y 轴刻度
+COLOR_CELL_BG = "#0F172A"  # cell 整体背景（与主窗口同色）
+COLOR_PLOT_BG = "#1E293B"  # plot 坐标系背景（v0.0.15 修订新增，与 cell 背景区分）
 
 # 指标元数据：(key, label, color, unit)
 # unit: "%" 百分比 0-100 / "°C" 温度 0-100°C（数值范围巧合一致，可共用 y 轴）
+# label v0.0.15 修订中文化
 METRICS: list[tuple[str, str, str, str]] = [
-    ("cpu", "CPU", COLOR_CPU, "%"),
-    ("gpu", "GPU", COLOR_GPU, "%"),
-    ("vram", "VRAM", COLOR_VRAM, "%"),
-    ("ram", "RAM", COLOR_RAM, "%"),
-    ("cpu_temp", "CPU°C", COLOR_CPU_TEMP, "°C"),
-    ("gpu_temp", "GPU°C", COLOR_GPU_TEMP, "°C"),
+    ("cpu", "CPU 占用率", COLOR_CPU, "%"),
+    ("gpu", "GPU 利用率", COLOR_GPU, "%"),
+    ("vram", "显存占用率", COLOR_VRAM, "%"),
+    ("ram", "内存占用率", COLOR_RAM, "%"),
+    ("cpu_temp", "CPU 温度", COLOR_CPU_TEMP, "°C"),
+    ("gpu_temp", "GPU 温度", COLOR_GPU_TEMP, "°C"),
 ]
 
 
