@@ -486,3 +486,55 @@ self.chat_page.set_model_provider(self.toolbar.current_model)
   - 测试：14 例新增（release_model happy/http/connection/timeout 4 + ModelReleaseWorker released/failed 2 + chat_page _on_model_changed/_clear_messages/_model_color 稳定/占位/_add_system_message 5 + toolbar release_btn 初始禁用/local 启用/cloud 禁用 3），总 120 通过，覆盖率 85.31%
   - .exe：v0.0.9 已打包并验证通过
 - **取代**：无（在 ADR-022 通过 Ollama 唤醒基础上扩展内存管理与 UX 改进，不修改 ADR-022 决策）
+
+## ADR-024：加载指示器（三点跳动 + 流动彩虹 + 半透明）
+
+**日期**：2026-06-20
+**状态**：已实施（v0.0.10）
+**关联**：ADR-022（流式批量刷新，本 ADR 补足"等待首 chunk 期间"的视觉反馈）
+
+### 背景
+
+v0.0.8 接通 Ollama 流式后，用户发送对话到首个 chunk 到达之间有数百毫秒~数秒的"空等期"，期间 UI 只显示"生成中"按钮文字，pending AI 气泡为空 QLabel（高度 0 看不见）。用户看不出"AI 是否在跑"，体验空洞。
+
+v0.0.10 加加载指示器填补空等期。
+
+### 决策
+
+四个维度经 AskUserQuestion 确认：
+
+| 维度 | 选项 | 决策 |
+|------|------|------|
+| 形式 | 不确定进度条 / spinner / 三点跳动 / 流动彩虹横条 | **三点跳动**（iMessage 打字气泡风格，轻量友好） |
+| 位置 | pending 气泡内 / 按钮位置 / 顶部悬浮条 / 输入框上方 | **pending AI 气泡内**（贴近用户视线） |
+| 彩色 | 模型 hash 色 / 流动彩虹渐变 / 品牌主色 | **流动彩虹渐变**（HSV 色相循环，独立于模型色，活泼） |
+| 透明度 | 元素半透明 / 消息流遮罩 / 气泡半透明 | **加载指示元素本身半透明**（alpha=180 ≈ 70%，不刺眼） |
+
+### 实施
+
+- 新建 `q_agent/ui/loading_dots.py`：`LoadingDots(QWidget)` 自定义 paintEvent
+  - 三个圆点（DOT_SIZE=8, DOT_GAP=8）依次上下跳动（DOT_BOUNCE=5px）
+  - 相位偏移 `i * 0.33` 让三个点错开 1/3 周期 → 依次跳动
+  - 跳动用 `-abs(math.sin(t * 2π))` → 平滑上跳下落
+  - 颜色 `QColor.fromHsv((phase*360 + i*60) % 360, 220, 230, 180)` → 流动彩虹
+  - QTimer 80ms tick，phase += 0.05，1.6s 一周期
+- `chat_page._add_message` 加 `loading: bool = False` 参数，pending AI 气泡用 True → 在模型名与气泡之间插入 LoadingDots
+- 新增 `_pending_loading: LoadingDots | None` 字段 + `_remove_pending_loading()` 辅助方法
+- `_on_chunk` 首次调用 / `_on_chat_failed` / `_on_chat_done` / `_clear_messages` 均清理 LoadingDots
+- 透明度 `DOT_ALPHA=180`（~70%）通过 QColor 第四参数 alpha 通道实现，非 setWindowOpacity（仅顶层窗口有效）
+
+### 取舍
+
+- **不用 QPropertyAnimation + QML**：自定义 paintEvent + QTimer 更轻量，PyInstaller 打包友好（不引入 QtQml 依赖），符合 ADR-015 零新运行时依赖
+- **不用 QMovie/GIF**：GIF 资源需打包进 .exe 增体积，矢量代码渲染更轻
+- **HSV 而非固定调色板**：流动效果需要色相连续变化，HSV 是最自然的色彩空间
+- **透明度 alpha=180 而非 setStyleSheet opacity**：Qt widget 无原生 opacity 属性，QGraphicsEffect 有性能开销，直接 painter alpha 通道最直接
+- **跳动幅度 5px 而非更大**：视觉提示性足够 + 不抢眼不晃动，符合"半透明不刺眼"决策
+
+### 不在范围内（v0.0.11+）
+
+- 取消按钮接 ChatWorker.stop()（加载中可点取消）
+- 加载时长统计 / 慢响应警告（如 5s 无 chunk 提示"Ollama 响应慢"）
+- 主题切换时 LoadingDots 配色变体（当前固定 HSV 流动）
+- 字体/字号优化（当前 dot_size=8 固定，不随 DPI 缩放）
+

@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from q_agent.ui.chat_worker import ChatWorker
+from q_agent.ui.loading_dots import LoadingDots
 
 # 气泡最大宽度占容器可用宽度的比例（长发言友好，短发言按内容自适应）
 BUBBLE_WIDTH_RATIO = 0.92
@@ -121,6 +122,7 @@ class ChatPage(QWidget):
         self._pending_bubble: QLabel | None = None
         self._pending_text: str = ""
         self._pending_model_name: str | None = None
+        self._pending_loading: LoadingDots | None = None
         self._bubble_labels: list[QLabel] = []  # 用于 resize 时批量更新最大宽度
         self._build_ui()
 
@@ -220,8 +222,10 @@ class ChatPage(QWidget):
             {"role": r, "content": t} for r, t, _ in self._messages
         ]
 
-        # 创建 pending AI 气泡（不污染 _messages，等生成完毕再 append）
-        pending_bubble = self._add_message("ai", "", model_name=model_name, append_to_history=False)
+        # 创建 pending AI 气泡（不污染 _messages，等生成完毕再 append）+ LoadingDots 加载指示器
+        pending_bubble = self._add_message(
+            "ai", "", model_name=model_name, append_to_history=False, loading=True
+        )
         self._pending_bubble = pending_bubble
         self._pending_text = ""
         self._pending_model_name = model_name
@@ -241,16 +245,27 @@ class ChatPage(QWidget):
         self._worker.chat_done.connect(self._on_chat_done)
         self._worker.start()
 
+    def _remove_pending_loading(self) -> None:
+        """移除 pending AI 气泡内的 LoadingDots（首个 chunk / 失败 / 完成时调用）。"""
+        if self._pending_loading is not None:
+            self._pending_loading.hide()
+            self._pending_loading.deleteLater()
+            self._pending_loading = None
+
     def _on_chunk(self, text: str) -> None:
         """ChatWorker 流式 flush 一段 → 追加到 pending AI 气泡。"""
         if self._pending_bubble is None:
             return
+        # 首个 chunk 到达 → 移除 LoadingDots（回复开始流入）
+        if self._pending_loading is not None:
+            self._remove_pending_loading()
         self._pending_text += text
         self._pending_bubble.setText(self._pending_text)
         self._scroll_to_bottom()
 
     def _on_chat_failed(self, msg: str) -> None:
         """ChatWorker 失败 → 把 pending 气泡变红显示错误。"""
+        self._remove_pending_loading()
         if self._pending_bubble is not None:
             self._pending_bubble.setText(f"❌ {msg}")
             self._pending_bubble.setObjectName("MessageError")
@@ -262,6 +277,7 @@ class ChatPage(QWidget):
 
     def _on_chat_done(self) -> None:
         """ChatWorker 完成 → 完整回复入历史 + 恢复输入状态。"""
+        self._remove_pending_loading()
         if self._pending_bubble is not None and self._pending_text:
             self._messages.append(("ai", self._pending_text, self._pending_model_name))
         self._pending_bubble = None
@@ -295,18 +311,22 @@ class ChatPage(QWidget):
         text: str,
         model_name: str | None = None,
         append_to_history: bool = True,
+        loading: bool = False,
     ) -> QLabel:
         """追加消息气泡。role: 'user'（贴右）/ 'ai'（贴左）。
 
         AI 消息时 model_name 非空 → 气泡上方加模型名小标签（颜色按 hash 取调色板）。
+        loading=True 时在气泡上方插入 LoadingDots 跳动指示器（pending AI 气泡专用，
+        第一个 chunk 到达后由 _on_chunk 移除）。
         布局：
-            AI 行：[stretch][垂直列：模型名label + 气泡label]  → 贴左
+            AI 行：[stretch][垂直列：模型名label + (LoadingDots?) + 气泡label]  → 贴左
             用户行：[垂直列：气泡label][stretch]  → 贴右
         气泡最大宽度 = 容器宽度 × 92%，长发言可占满大部分宽度。
 
         Args:
             append_to_history: 是否加入 _messages 历史。pending AI 气泡用 False
                 不污染历史，等 chat_done 时再单独 append。
+            loading: 是否在气泡上方插入 LoadingDots 加载指示器（pending AI 专用）。
 
         Returns:
             bubble_label 引用，供外部追加 text（流式 chunk 用）
@@ -333,6 +353,12 @@ class ChatPage(QWidget):
             model_label.setStyleSheet(f"color: {color}; font-size: 11px; padding: 0 4px;")
             col_layout.addWidget(model_label)
             self._bubble_labels.append(model_label)
+
+        # pending AI 气泡：模型名下方、气泡上方插入 LoadingDots 跳动指示器
+        if loading:
+            loading_dots = LoadingDots(bubble_col)
+            col_layout.addWidget(loading_dots)
+            self._pending_loading = loading_dots
 
         col_layout.addWidget(bubble_label)
 
@@ -393,6 +419,8 @@ class ChatPage(QWidget):
         self._pending_bubble = None
         self._pending_text = ""
         self._pending_model_name = None
+        # LoadingDots 随 row widget deleteLater 一并销毁，仅清引用
+        self._pending_loading = None
 
     def _on_model_changed(self, model_name: str) -> None:
         """toolbar.model_selected 信号触发：清空对话 + 插入系统提示气泡。

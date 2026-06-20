@@ -500,3 +500,117 @@ def test_model_release_worker_emits_failed_on_error(qapp, monkeypatch) -> None: 
 
     assert released == []
     assert failed == ["无法连接 Ollama"]
+
+
+def test_loading_dots_created_on_send_clicked(qapp, monkeypatch) -> None:  # noqa: ANN001
+    """_on_send_clicked → pending 气泡内含 LoadingDots（_pending_loading 非 None）。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    class _SignalStub:
+        def __init__(self) -> None:
+            self._slots: list[Any] = []
+
+        def connect(self, slot: Any) -> None:
+            self._slots.append(slot)
+
+        def emit(self, *args: Any) -> None:
+            for s in self._slots:
+                s(*args)
+
+    class FakeWorker:
+        chunk_received = _SignalStub()
+        chat_failed = _SignalStub()
+        chat_done = _SignalStub()
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr("q_agent.ui.pages.chat_page.ChatWorker", FakeWorker)
+
+    page = ChatPage()
+    page.set_model_provider(lambda: "qwen2.5:7b")
+    page.set_group_provider(lambda: "local")
+    page.set_host("http://localhost:11434")
+    page.input.setPlainText("你好")
+
+    page._on_send_clicked()
+
+    # pending_loading 应被创建
+    assert page._pending_loading is not None
+
+
+def test_loading_dots_removed_on_first_chunk(qapp) -> None:  # noqa: ANN001
+    """_on_chunk 首次调用 → 移除 LoadingDots。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    page = ChatPage()
+    # 模拟 _on_send_clicked 后的 pending 状态（含 LoadingDots）
+    bubble = page._add_message(
+        "ai", "", model_name="qwen2.5:7b", append_to_history=False, loading=True
+    )
+    page._pending_bubble = bubble
+    page._pending_text = ""
+
+    assert page._pending_loading is not None
+
+    page._on_chunk("Hello")
+
+    # 首个 chunk 后 LoadingDots 应移除
+    assert page._pending_loading is None
+    assert page._pending_text == "Hello"
+
+
+def test_loading_dots_removed_on_chat_failed(qapp) -> None:  # noqa: ANN001
+    """_on_chat_failed → 清理 LoadingDots。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    page = ChatPage()
+    bubble = page._add_message(
+        "ai", "", model_name="qwen2.5:7b", append_to_history=False, loading=True
+    )
+    page._pending_bubble = bubble
+    page.set_group_provider(lambda: "local")
+
+    assert page._pending_loading is not None
+
+    page._on_chat_failed("无法连接 Ollama")
+
+    assert page._pending_loading is None
+
+
+def test_loading_dots_removed_on_chat_done_empty_reply(qapp) -> None:  # noqa: ANN001
+    """_on_chat_done 空回复时也清理 LoadingDots。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    page = ChatPage()
+    bubble = page._add_message(
+        "ai", "", model_name="qwen2.5:7b", append_to_history=False, loading=True
+    )
+    page._pending_bubble = bubble
+    page._pending_text = ""  # 空回复
+    page._pending_model_name = "qwen2.5:7b"
+    page.set_group_provider(lambda: "local")
+
+    assert page._pending_loading is not None
+
+    page._on_chat_done()
+
+    assert page._pending_loading is None
+    # 空回复不入历史
+    assert not any(m for m in page._messages if m[0] == "ai" and m[2] == "qwen2.5:7b")
+
+
+def test_clear_messages_clears_pending_loading_ref(qapp) -> None:  # noqa: ANN001
+    """_clear_messages 清空 _pending_loading 引用（widget 随 row deleteLater 一并销毁）。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    page = ChatPage()
+    page._add_message("ai", "", model_name="qwen2.5:7b", append_to_history=False, loading=True)
+    assert page._pending_loading is not None
+
+    page._clear_messages()
+
+    assert page._pending_loading is None
