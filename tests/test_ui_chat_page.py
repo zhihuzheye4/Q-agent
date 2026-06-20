@@ -103,6 +103,7 @@ def test_on_send_clicked_starts_worker_and_enters_loading(qapp, monkeypatch) -> 
         chunk_received = _SignalStub()
         chat_failed = _SignalStub()
         chat_done = _SignalStub()
+        chat_aborted = _SignalStub()
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
@@ -521,6 +522,7 @@ def test_loading_dots_created_on_send_clicked(qapp, monkeypatch) -> None:  # noq
         chunk_received = _SignalStub()
         chat_failed = _SignalStub()
         chat_done = _SignalStub()
+        chat_aborted = _SignalStub()
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
@@ -614,3 +616,93 @@ def test_clear_messages_clears_pending_loading_ref(qapp) -> None:  # noqa: ANN00
     page._clear_messages()
 
     assert page._pending_loading is None
+
+
+def test_cancel_chat_no_worker_no_crash(qapp, monkeypatch) -> None:  # noqa: ANN001
+    """v0.0.17：_cancel_chat 无生成中 worker 时不崩（无操作）。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    class _StubWorker:
+        def __init__(self) -> None:
+            self.stopped = False
+
+        def isRunning(self) -> bool:
+            return False
+
+        def stop(self) -> None:
+            self.stopped = True
+
+    chat = ChatPage()
+    chat._worker = _StubWorker()
+    # 无生成中 → 调 _cancel_chat 不应调 stop
+    chat._cancel_chat()
+    assert chat._worker.stopped is False, "无生成中 worker 时不应调 stop"
+
+
+def test_cancel_chat_running_worker_calls_stop(qapp, monkeypatch) -> None:  # noqa: ANN001
+    """v0.0.17：_cancel_chat 生成中 worker 时调用 stop。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    class _StubWorker:
+        def __init__(self) -> None:
+            self.stopped = False
+
+        def isRunning(self) -> bool:
+            return True
+
+        def stop(self) -> None:
+            self.stopped = True
+
+    chat = ChatPage()
+    chat._worker = _StubWorker()
+    chat._cancel_chat()
+    assert chat._worker.stopped is True, "生成中 worker 应调 stop"
+
+
+def test_on_chat_aborted_preserves_partial_reply(qapp, monkeypatch) -> None:  # noqa: ANN001
+    """v0.0.17：_on_chat_aborted 保留已生成部分回复入历史（加 [已取消] 后缀）。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    class _SignalStub:
+        def __init__(self) -> None:
+            self._slots: list = []
+
+        def connect(self, slot: object) -> None:
+            self._slots.append(slot)
+
+        def emit(self, *args: object) -> None:
+            for s in self._slots:
+                s(*args)
+
+    class FakeWorker:
+        chunk_received = _SignalStub()
+        chat_failed = _SignalStub()
+        chat_done = _SignalStub()
+        chat_aborted = _SignalStub()
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr("q_agent.ui.pages.chat_page.ChatWorker", FakeWorker)
+
+    chat = ChatPage()
+    chat.set_model_provider(lambda: "qwen2.5:7b")
+    chat.set_group_provider(lambda: "local")
+    chat.input.setPlainText("测试")
+    chat._on_send_clicked()
+    # 模拟流式中：已收到部分文本（pending_bubble 已被 _on_send_clicked 创建）
+    chat._pending_text = "已生成的部分"
+    initial_count = len(chat._messages)
+    chat._on_chat_aborted()
+    # 应入历史一条 ai 消息含 [已取消] 后缀
+    assert len(chat._messages) == initial_count + 1
+    last = chat._messages[-1]
+    assert last[0] == "ai"
+    assert "[已取消]" in last[1]
+    assert last[2] == "qwen2.5:7b"
+    # pending 状态应清空
+    assert chat._pending_text == ""
+    assert chat._pending_bubble is None

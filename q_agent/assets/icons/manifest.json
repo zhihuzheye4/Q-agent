@@ -63,8 +63,8 @@
       "level": "UI"
     },
     {
-      "name": "release-active",
-      "file": "release-active.svg",
+      "name": "stop-active",
+      "file": "stop-active.svg",
       "level": "UI"
     }
   ]

@@ -118,6 +118,8 @@ class Toolbar(QToolBar):
     # v0.0.16 新增：新建对话 / 清空 按钮的请求信号（MainWindow 连接到 chat_page._clear_messages）
     new_chat_requested = Signal()
     clear_requested = Signal()
+    # v0.0.17 新增：取消生成按钮的请求信号（MainWindow 连接到 chat_page._cancel_chat）
+    cancel_requested = Signal()
 
     def __init__(
         self,
@@ -147,6 +149,12 @@ class Toolbar(QToolBar):
         clear.setStatusTip("清空对话")
         # v0.0.16：从 status_callback 占位改为 emit clear_requested 信号
         clear.triggered.connect(self.clear_requested.emit)
+
+        # v0.0.17 新增：取消生成按钮（stop-active 图标）
+        cancel = self.addAction(load_icon("stop"), "取消")
+        cancel.setToolTip("取消当前 AI 回复生成（中断流式）")
+        cancel.setStatusTip("取消生成")
+        cancel.triggered.connect(self.cancel_requested.emit)
 
         about = self.addAction(load_icon("about"), "关于")
         about.setToolTip("关于 Q-agent（版本信息与功能说明）")

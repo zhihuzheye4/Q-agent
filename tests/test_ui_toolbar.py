@@ -452,3 +452,16 @@ def test_clear_requested_signal_emits(qapp) -> None:  # noqa: ANN001
     clear_action = next(a for a in actions if a.toolTip().startswith("清空当前"))
     clear_action.trigger()
     assert received == [True], "清空按钮应 emit clear_requested 信号"
+
+
+def test_cancel_requested_signal_emits(qapp) -> None:  # noqa: ANN001
+    """v0.0.17：取消按钮 triggered 应 emit cancel_requested 信号。"""
+    from q_agent.ui.toolbar import Toolbar
+
+    tb = Toolbar()
+    received: list[bool] = []
+    tb.cancel_requested.connect(lambda: received.append(True))
+    actions = tb.actions()
+    cancel_action = next(a for a in actions if a.toolTip().startswith("取消当前"))
+    cancel_action.trigger()
+    assert received == [True], "取消按钮应 emit cancel_requested 信号"

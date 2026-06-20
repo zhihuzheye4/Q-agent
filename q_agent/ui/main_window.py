@@ -131,6 +131,9 @@ class MainWindow(QMainWindow):
         self.toolbar.new_chat_requested.connect(self.chat_page._clear_messages)
         self.toolbar.clear_requested.connect(self.chat_page._clear_messages)
 
+        # toolbar 取消生成按钮 → chat_page._cancel_chat（v0.0.17 接通 ChatWorker.stop）
+        self.toolbar.cancel_requested.connect(self.chat_page._cancel_chat)
+
         # 菜单栏（注入 monitor_callback / close_callback，"监控"菜单 triggered）
         self.menu = MenuBar(
             self,

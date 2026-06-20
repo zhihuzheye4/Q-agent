@@ -146,6 +146,7 @@ def test_chat_page_send_appends_user_and_pending_ai(qapp, monkeypatch) -> None: 
         chunk_received = _SignalStub()
         chat_failed = _SignalStub()
         chat_done = _SignalStub()
+        chat_aborted = _SignalStub()
 
         def __init__(self, *args: object, **kwargs: object) -> None:
             pass
@@ -202,6 +203,7 @@ def test_chat_page_ai_bubble_includes_model_name(qapp, monkeypatch) -> None:  # 
         chunk_received = _SignalStub()
         chat_failed = _SignalStub()
         chat_done = _SignalStub()
+        chat_aborted = _SignalStub()
 
         def __init__(self, *args: object, **kwargs: object) -> None:
             pass
@@ -244,6 +246,7 @@ def test_chat_page_ai_bubble_uses_placeholder_when_no_model(qapp, monkeypatch) -
         chunk_received = _SignalStub()
         chat_failed = _SignalStub()
         chat_done = _SignalStub()
+        chat_aborted = _SignalStub()
 
         def __init__(self, *args: object, **kwargs: object) -> None:
             pass
@@ -285,6 +288,7 @@ def test_chat_page_user_bubble_has_no_model_name(qapp, monkeypatch) -> None:  # 
         chunk_received = _SignalStub()
         chat_failed = _SignalStub()
         chat_done = _SignalStub()
+        chat_aborted = _SignalStub()
 
         def __init__(self, *args: object, **kwargs: object) -> None:
             pass

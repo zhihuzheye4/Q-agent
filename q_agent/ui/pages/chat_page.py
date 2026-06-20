@@ -243,6 +243,7 @@ class ChatPage(QWidget):
         self._worker.chunk_received.connect(self._on_chunk)
         self._worker.chat_failed.connect(self._on_chat_failed)
         self._worker.chat_done.connect(self._on_chat_done)
+        self._worker.chat_aborted.connect(self._on_chat_aborted)
         self._worker.start()
 
     def _remove_pending_loading(self) -> None:
@@ -280,6 +281,30 @@ class ChatPage(QWidget):
         self._remove_pending_loading()
         if self._pending_bubble is not None and self._pending_text:
             self._messages.append(("ai", self._pending_text, self._pending_model_name))
+        self._pending_bubble = None
+        self._pending_text = ""
+        self._pending_model_name = None
+        self._reset_send_state()
+
+    def _cancel_chat(self) -> None:
+        """v0.0.17 新增：取消当前 ChatWorker 流式生成（toolbar"取消"按钮触发）。
+
+        无生成中 worker 时无操作（不抛错）。
+        """
+        if self._worker is not None and self._worker.isRunning():
+            self._worker.stop()
+
+    def _on_chat_aborted(self) -> None:
+        """v0.0.17 新增：ChatWorker 被用户取消 → 保留已生成的部分回复入历史 + 恢复输入状态。
+
+        已收到的部分回复加"[已取消]"后缀让用户知道是中断而非完整回复。
+        无部分回复时仅清理 pending 状态（如取消发生在首个 chunk 之前）。
+        """
+        self._remove_pending_loading()
+        if self._pending_bubble is not None and self._pending_text:
+            self._messages.append(
+                ("ai", self._pending_text + " [已取消]", self._pending_model_name)
+            )
         self._pending_bubble = None
         self._pending_text = ""
         self._pending_model_name = None

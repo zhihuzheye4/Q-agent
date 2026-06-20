@@ -370,6 +370,16 @@ def icon_about_active() -> str:
     return render_svg(body)
 
 
+def icon_stop_active() -> str:
+    """工具栏：取消生成（Lucide square 实心方块，停止符号）"""
+    body = group(
+        [
+            rect(8, 8, 8, 8, **{"fill": "currentColor"}),
+        ]
+    )
+    return render_svg(body)
+
+
 def icon_refresh_active() -> str:
     """工具栏：刷新（Lucide refresh-cw 双圆弧箭头）"""
     body = group(
@@ -401,6 +411,7 @@ ICONS: list[tuple[str, str, Callable[[], str]]] = [
     ("clear-active", "UI", icon_clear_active),
     ("about-active", "UI", icon_about_active),
     ("refresh-active", "UI", icon_refresh_active),
+    ("stop-active", "UI", icon_stop_active),
 ]
 
 

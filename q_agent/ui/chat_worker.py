@@ -4,8 +4,8 @@
     - 后台跑 OllamaClient.chat_stream，避免阻塞 UI 主线程
     - 批量刷新策略（混合）：buffer 攒满 500 字 OR 距上次 flush 满 500ms，任一触发就 emit
       避免纯 token 流式"一秒一字让用户崩溃"的体验
-    - 信号 chunk_received(str) / chat_failed(str) / chat_done() 回主线程更新气泡
-    - stop() 接口留作未来取消按钮使用（v0.0.8 未接 UI）
+    - 信号 chunk_received(str) / chat_failed(str) / chat_done() / chat_aborted() 回主线程更新气泡
+    - stop() 接口 v0.0.17 接通 UI 取消按钮：触发后 run 循环检测 _stop 早退 + emit chat_aborted
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ class ChatWorker(QThread):
     chunk_received = Signal(str)
     chat_failed = Signal(str)
     chat_done = Signal()
+    chat_aborted = Signal()  # v0.0.17 新增：用户取消生成（stop 触发后 emit）
 
     # 批量刷新阈值：buffer 攒满 CHUNK_SIZE 字 OR 距上次 flush 满 FLUSH_MS 毫秒，任一触发
     CHUNK_SIZE = 500
@@ -44,13 +45,20 @@ class ChatWorker(QThread):
         self._stop = False
 
     def run(self) -> None:
-        """跑流式 chat，buffer 攒到阈值或超时即 emit，结束 emit 剩余 + chat_done。"""
+        """跑流式 chat，buffer 攒到阈值或超时即 emit，结束 emit 剩余 + chat_done。
+
+        v0.0.17：检测到 _stop 时 flush 已收到的剩余 buffer + emit chat_aborted（不是 chat_done），
+        让 chat_page 区分"正常完成"和"用户取消"两种结束路径。
+        """
         try:
             client = OllamaClient(self._model, self._host)
             buffer = ""
             last_flush = time.monotonic()
             for text in client.chat_stream(self._messages):
                 if self._stop:
+                    if buffer:
+                        self.chunk_received.emit(buffer)
+                    self.chat_aborted.emit()
                     return
                 buffer += text
                 now = time.monotonic()
@@ -68,5 +76,9 @@ class ChatWorker(QThread):
             self.chat_failed.emit(f"未知错误：{e}")
 
     def stop(self) -> None:
-        """请求停止（下次循环检查 _stop 后早退）。v0.0.8 未接 UI 取消按钮。"""
+        """请求停止（v0.0.17 接通 UI 取消按钮）。
+
+        主线程调 stop() 设 _stop flag，run 循环下次迭代检查到 _stop 后
+        flush 剩余 buffer + emit chat_aborted 早退。
+        """
         self._stop = True
