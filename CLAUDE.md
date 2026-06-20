@@ -262,6 +262,10 @@ commit 前必须：`ruff check . && ruff format --check . && mypy q_agent && pyt
 - `.exe` 二进制不入 git（已在 `.gitignore` 忽略），目录结构靠 `.gitkeep` + `README.md` 保留
 - **只保留最新一代**：每次打新版本 .exe 时，删掉上一版子目录，只留当前最新版本（2026-06-20 用户明确修改，避免冗余历史 .exe 占空间；版本演进历史靠 `安装包/README.md` 的"版本历史"表 + git log 保留）
 - 生成后更新 `安装包/README.md` 的版本历史表（追加一行，不删旧行）
+- **打包命令必须严格从 `安装包/README.md` 标准模板复制粘贴，不得手敲删参数**（v0.0.14 新增强制规则）
+  - 历史教训：v0.0.12 打包时手敲命令漏了 `--add-data "q_agent/assets;q_agent/assets"`，导致 SVG 图标资源没进 .exe，运行时 `importlib.resources` 找不到图标，tab 图标全部消失
+  - 正确做法：每次打包前先 Read `安装包/README.md` 复制标准命令模板，原样粘贴执行，禁止凭记忆手敲
+  - 如需新增/修改打包参数（如新依赖的 `--collect-all`），必须先更新 `安装包/README.md` 模板，再从模板复制执行
 
 ## 十八、UI 矢量图资源规则
 
@@ -291,3 +295,23 @@ commit 前必须：`ruff check . && ruff format --check . && mypy q_agent && pyt
 - 依赖选择原则：优先选**能被 PyInstaller 打包**的库；避免引入**动态加载/外部子进程依赖**的库（这类库即便进 .exe 也会在用户机器上要求额外环境）
 - .exe 体积是优化目标（避免 1G 软件 + 20G 外部库的"买手机得先买光刻机"荒谬），但**零外部依赖安装**是硬规则，体积可以大但不能让用户装东西
 - 引入新运行时依赖前必须验证：能否被 PyInstaller `--onefile` 打包？打包后用户机器零外部依赖即可运行？
+
+## 二十一、贴纸式开发原则
+
+- **核心哲学**：增加新功能 = 在空白处贴一张贴纸，既有模块零改动；删除新功能 = 撕掉贴纸，既有模块零影响。一个功能的崩溃不得引起其他功能/整个窗口的错误。
+- **基座与贴纸的划分**：
+  - **基座**：v0.0.1 写好的 UI 框架（MainWindow 布局骨架、Sidebar 4 tab、ChatPage 消息流、Toolbar、MenuBar、theme QSS、icons 资源系统）。基座一旦写好**永不再动**（除非明确扩展公开接口）。
+  - **贴纸**：每个新功能 = 独立 widget 文件 + 父容器一行挂载 + 信号槽连接。父容器只负责布局挂载和信号连接，不侵入子 widget 内部。
+- **新功能挂载规范**：
+  1. 新建独立 widget 文件（如 `q_agent/ui/hardware_monitor.py`），自己管自己的渲染、回调、生命周期
+  2. 父容器（MainWindow / Page）一行 `addWidget` 挂载，一行信号槽连接
+  3. 资源（图标/SVG）集中到 `q_agent/assets/icons/`，通过 `load_icon(name)` 引用
+  4. widget 之间不互相引用，一个崩溃不影响其他（Qt 异常隔离 + 独立信号槽）
+- **架构级改动的判定**（触发第十九节"先展示方案让用户否决"）：
+  - 改既有模块的**类继承关系**（如 QListWidget → QFrame）
+  - 改既有模块的 **objectName**（导致 QSS 选择器失配）
+  - 改既有模块的**公开接口**（信号签名、公开方法签名）
+  - 把新功能**塞进既有模块内部**（而非独立挂载）
+  - 以上任一动作 = 架构级改动，必须先展示方案让用户否决，不得以"判断力"为由直接执行
+- **历史教训**：v0.0.12 把 `Sidebar` 从 `QListWidget` 改成 `QFrame` 容器内嵌 `HardwareMonitor`，违反本原则——导致 QSS 选择器失配、tab item 样式失效、tooltip 异常、SVG 图标因打包命令漏 `--add-data` 消失。连锁影响 4 个独立问题，全部由"侵入既有模块"引发。v0.0.14 回退到 v0.0.9 sidebar 原貌 + MainWindow left panel 独立挂载 `HardwareMonitor`，恢复贴纸式。
+- **违规自检**：每次写代码前自问"这个改动是否动了既有模块的类继承/objectName/公开接口/内部结构？"——若是，停止，先展示方案。

@@ -47,7 +47,7 @@ QMainWindow, QWidget {{
     background-color: {COLOR_BACKGROUND};
 }}
 
-/* ===== 侧边栏 ===== */
+/* ===== 侧边栏（v0.0.14 回退：Sidebar 恢复 QListWidget 子类，QSS 选择器恢复 #Sidebar） ===== */
 QListWidget#Sidebar {{
     background-color: {COLOR_PRIMARY};
     border: none;

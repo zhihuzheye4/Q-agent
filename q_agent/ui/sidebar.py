@@ -1,20 +1,18 @@
-"""侧边栏：4 tab 切换 + 底部硬件监控曲线（v0.0.12）。
+"""侧边栏：4 tab 切换（v0.0.1 基座，v0.0.14 恢复 QListWidget 子类原貌）。
 
-结构（v0.0.12 改造）：
-    +----------------+
-    | QListWidget    |  ← 4 tab：对话/技能/记忆/设置
-    | (tab 列表)     |
-    +----------------+
-    | HardwareMonitor|  ← 4 条折线（CPU/GPU/VRAM/RAM）60s 历史
-    | (常驻)         |
-    +----------------+
+v0.0.14 回退说明：
+    v0.0.12 曾把 Sidebar 从 QListWidget 改为 QFrame 容器内嵌 HardwareMonitor，
+    违反贴纸式开发原则（CLAUDE.md 第二十一节）——新功能侵入既有模块导致
+    QSS 选择器失配、tooltip 异常、连锁破坏。v0.0.14 回退到 v0.0.9 QListWidget
+    子类原貌，HardwareMonitor 改由 MainWindow left panel 独立挂载（贴纸式）。
+
+4 个 tab：
+    对话 / 技能 / 记忆 / 设置
 
 行为：
-    - QListWidget 点击切换主内容区（QStackedWidget index），tab_changed 信号保留
-    - HardwareMonitor 后台 1s 采集一次样本，自绘 4 条折线
-    - 整个 sidebar 宽度固定 200px
-
-v0.0.12 改动原因：用户要求"在左侧工具栏增加硬件占用曲线 CPU 和 GPU 实时显示"。
+    - QListWidget 4 项，点击切换主内容区（QStackedWidget index）
+    - 每个 tab 项含图标 + 文字 + tooltip
+    - 键盘 Tab 键可聚焦，Enter 可切换（UX 规范 keyboard nav 友好）
 """
 
 from __future__ import annotations
@@ -26,9 +24,8 @@ if TYPE_CHECKING:
 
 from PySide6.QtCore import QSize, Signal
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QFrame, QListWidget, QListWidgetItem, QVBoxLayout
+from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
-from q_agent.ui.hardware_monitor import HardwareMonitor
 from q_agent.ui.icons import load_icon
 
 # tab 元数据：(name, label, icon_name, tooltip)
@@ -39,15 +36,15 @@ TABS: list[tuple[str, str, str, str]] = [
     ("settings", "设置", "settings", "设置 tab：通用 / LLM 后端 / 工具调用层配置"),
 ]
 
-# sidebar 固定宽度（含 tab 列表 + 硬件监控）
+# sidebar 固定宽度（v0.0.14 起由 MainWindow left panel 控制整体宽度，
+# sidebar 自身仍保留 200px 兼容历史）
 SIDEBAR_WIDTH = 200
 
 
-class Sidebar(QFrame):
-    """侧边栏容器：QListWidget tab 切换 + 底部 HardwareMonitor 硬件监控曲线。
+class Sidebar(QListWidget):
+    """侧边栏 tab 切换组件（v0.0.14 贴纸式回退：纯 QListWidget，不含硬件监控）。
 
-    v0.0.12 起从 QListWidget 改为 QFrame 容器，保留 tab_changed 信号。
-    HardwareMonitor 启动由 MainWindow 在 show 后调用 sidebar.hardware_monitor.start()。
+    硬件监控由 MainWindow 在 left panel 中独立挂载，不侵入本组件。
     """
 
     tab_changed = Signal(int)  # 切换时发信号，参数为 tab 索引
@@ -56,29 +53,14 @@ class Sidebar(QFrame):
         super().__init__(parent)
         self.setObjectName("Sidebar")
         self.setFixedWidth(SIDEBAR_WIDTH)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        # 上方：tab 列表
-        self._list = QListWidget(self)
-        self._list.setObjectName("SidebarList")
-        self._list.setIconSize(QSize(20, 20))
-        self._list.setCurrentRow(0)
-        self._list.currentRowChanged.connect(self.tab_changed.emit)
+        self.setIconSize(QSize(20, 20))
+        self.setCurrentRow(0)
+        self.currentRowChanged.connect(self.tab_changed.emit)
         self._build_items()
-        layout.addWidget(self._list, stretch=1)
-
-        # 下方：硬件监控曲线（常驻）
-        self.hardware_monitor = HardwareMonitor(self)
-        layout.addWidget(self.hardware_monitor)
-
-        self.setLayout(layout)
 
     def _build_items(self) -> None:
         for _name, label, icon_name, tooltip in TABS:
             icon: QIcon = load_icon(icon_name)
             item = QListWidgetItem(icon, label)
             item.setToolTip(tooltip)
-            self._list.addItem(item)
+            self.addItem(item)

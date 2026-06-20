@@ -28,14 +28,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "minimal")
 
 
 @pytest.fixture(scope="module")
-def qapp() -> "QApplication":
+def qapp() -> QApplication:
     from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance() or QApplication([])
     yield app
 
 
-def test_hardware_monitor_constructs_with_fixed_height(qapp: "QApplication") -> None:
+def test_hardware_monitor_constructs_with_fixed_height(qapp: QApplication) -> None:
     """HardwareMonitor 构造 OK，固定高度 = MONITOR_HEIGHT。"""
     from q_agent.ui.hardware_monitor import MONITOR_HEIGHT, HardwareMonitor
 
@@ -48,7 +48,7 @@ def test_hardware_monitor_constructs_with_fixed_height(qapp: "QApplication") -> 
     assert monitor._worker is not None
 
 
-def test_on_sample_appends_and_truncates_history(qapp: "QApplication") -> None:
+def test_on_sample_appends_and_truncates_history(qapp: QApplication) -> None:
     """_on_sample 追加样本到各指标历史 + 超 HISTORY_SECONDS 截断。"""
     from q_agent.ui.hardware_monitor import HISTORY_SECONDS, HardwareMonitor
 
@@ -63,7 +63,7 @@ def test_on_sample_appends_and_truncates_history(qapp: "QApplication") -> None:
         assert monitor._history[key][-1] == float(HISTORY_SECONDS + 4)
 
 
-def test_on_sample_none_does_not_crash(qapp: "QApplication") -> None:
+def test_on_sample_none_does_not_crash(qapp: QApplication) -> None:
     """_on_sample 收到 None 字段时 append None，不崩。"""
     from q_agent.ui.hardware_monitor import HardwareMonitor
 
@@ -74,7 +74,7 @@ def test_on_sample_none_does_not_crash(qapp: "QApplication") -> None:
         assert monitor._history[key] == [None]
 
 
-def test_paint_event_renders_without_crash_empty_history(qapp: "QApplication") -> None:
+def test_paint_event_renders_without_crash_empty_history(qapp: QApplication) -> None:
     """paintEvent 在无数据时不崩（4 条灰色 N/A 占位横线）。"""
     from q_agent.ui.hardware_monitor import HardwareMonitor
 
@@ -87,7 +87,7 @@ def test_paint_event_renders_without_crash_empty_history(qapp: "QApplication") -
     monitor.paintEvent(event)
 
 
-def test_paint_event_renders_with_partial_data(qapp: "QApplication") -> None:
+def test_paint_event_renders_with_partial_data(qapp: QApplication) -> None:
     """paintEvent 在有部分数据（部分 None）时不崩。"""
     from q_agent.ui.hardware_monitor import HardwareMonitor
 
@@ -101,7 +101,7 @@ def test_paint_event_renders_with_partial_data(qapp: "QApplication") -> None:
     monitor.paintEvent(event)
 
 
-def test_paint_event_renders_with_full_data(qapp: "QApplication") -> None:
+def test_paint_event_renders_with_full_data(qapp: QApplication) -> None:
     """paintEvent 在 4 指标全有数据时不崩。"""
     from q_agent.ui.hardware_monitor import HardwareMonitor
 
@@ -121,7 +121,7 @@ def test_paint_event_renders_with_full_data(qapp: "QApplication") -> None:
     monitor.paintEvent(event)
 
 
-def test_draw_line_none_segment_breaks_line(qapp: "QApplication") -> None:
+def test_draw_line_none_segment_breaks_line(qapp: QApplication) -> None:
     """_draw_line 在 None 段断开不连线（prev_x/prev_y 重置）。"""
     from PySide6.QtGui import QColor, QImage, QPainter
 
@@ -140,7 +140,7 @@ def test_draw_line_none_segment_breaks_line(qapp: "QApplication") -> None:
     # 不崩即通过
 
 
-def test_draw_line_all_none_draws_na_placeholder(qapp: "QApplication") -> None:
+def test_draw_line_all_none_draws_na_placeholder(qapp: QApplication) -> None:
     """_draw_line 全 None 时画灰色 N/A 占位横线（不崩）。"""
     from PySide6.QtGui import QColor, QImage, QPainter
 
@@ -166,7 +166,7 @@ def test_collect_sample_sync_returns_4_fields_dict() -> None:
         assert sample[key] is None or isinstance(sample[key], float)
 
 
-def test_worker_init_handles_no_pynvml(qapp: "QApplication") -> None:
+def test_worker_init_handles_no_pynvml(qapp: QApplication) -> None:
     """HardwareMonitorWorker 构造时 pynvml 不可用 → _nvml_ok=False，不崩。"""
     from q_agent.ui.hardware_monitor import HardwareMonitorWorker
 

@@ -100,15 +100,16 @@ def test_theme_color_constants() -> None:
 
 
 def test_main_window_constructs(qapp) -> None:  # noqa: ANN001
-    """MainWindow 可构造，4 tab + 4 stack 页。"""
+    """MainWindow 可构造，4 tab + 4 stack 页 + left panel 含 hardware_monitor。"""
     from q_agent.ui.main_window import MainWindow
 
     w = MainWindow()
     assert w.windowTitle() == "Q-agent"
-    assert w.sidebar._list.count() == 4, "侧边栏应有 4 个 tab"
+    # v0.0.14：sidebar 恢复 QListWidget 子类，count() 直接可用
+    assert w.sidebar.count() == 4, "侧边栏应有 4 个 tab"
     assert w.stack.count() == 4, "主内容区应有 4 个页面"
-    # v0.0.12：sidebar 含 HardwareMonitor 子组件
-    assert w.sidebar.hardware_monitor is not None
+    # v0.0.14：hardware_monitor 由 MainWindow left panel 独立挂载（非 sidebar 子组件）
+    assert w.hardware_monitor is not None
 
 
 def test_sidebar_tab_switches_stack(qapp) -> None:  # noqa: ANN001
@@ -117,7 +118,8 @@ def test_sidebar_tab_switches_stack(qapp) -> None:  # noqa: ANN001
 
     w = MainWindow()
     for i in range(4):
-        w.sidebar._list.setCurrentRow(i)
+        # v0.0.14：sidebar 恢复 QListWidget 子类，setCurrentRow 直接可用
+        w.sidebar.setCurrentRow(i)
         assert w.stack.currentIndex() == i, f"侧边栏 {i} 未正确切换 stack"
 
 

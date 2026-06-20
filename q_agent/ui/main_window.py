@@ -1,27 +1,37 @@
 """主窗口：QMainWindow 主框架。
 
-结构：
+结构（v0.0.14 贴纸式重构）：
     +---------------------------+
     | menu_bar                   |
     +---------------------------+
     | toolbar                    |
     +---+-----------------------+
-    | S |   QStackedWidget      |
-    | i |   (ChatPage /          |
-    | d |    SkillsPage /        |
-    | e |    MemoryPage /         |
-    | b |    SettingsPage)       |
+    | L |   QStackedWidget      |
+    | e |   (ChatPage /          |
+    | f |    SkillsPage /        |
+    | t |    MemoryPage /         |
+    | P |    SettingsPage)       |
     | a |                        |
-    | r |                        |
+    | n |                        |
+    | e |                        |
+    | l |                        |
     +---+-----------------------+
     | status_bar                 |
     +---------------------------+
 
-行为：
-    - 侧边栏点击 tab → QStackedWidget 切换 index
-    - 工具栏按钮 → 状态栏提示
-    - 菜单栏文件 → 退出；帮助 → 关于弹窗
-    - 全部前端响应，无后端逻辑
+Left Panel（v0.0.14 新增，贴纸式挂载点）：
+    +---------------+
+    | Sidebar       |  ← 4 tab（对话/技能/记忆/设置）stretch=1
+    | (QListWidget) |
+    +---------------+
+    | HardwareMonitor|  ← 硬件监控曲线 4 折线 60s 历史，固定 160px
+    +---------------+
+    整体 fixed 200px 宽，放进水平布局左侧
+
+v0.0.14 贴纸式原则（CLAUDE.md 第二十一节）：
+    - Sidebar 保持 v0.0.9 QListWidget 子类原貌，零改动
+    - HardwareMonitor 独立 widget，由 MainWindow left panel 一行 addWidget 挂载
+    - 删除/新增硬件监控只动 HardwareMonitor 文件 + MainWindow 一行挂载，Sidebar 零影响
 """
 
 from __future__ import annotations
@@ -37,21 +47,26 @@ from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
     QStackedWidget,
+    QVBoxLayout,
     QWidget,
 )
 
+from q_agent.ui.hardware_monitor import HardwareMonitor
 from q_agent.ui.menu_bar import MenuBar
 from q_agent.ui.pages.chat_page import ChatPage
 from q_agent.ui.pages.memory_page import MemoryPage
 from q_agent.ui.pages.settings_page import SettingsPage
 from q_agent.ui.pages.skills_page import SkillsPage
-from q_agent.ui.sidebar import Sidebar
+from q_agent.ui.sidebar import SIDEBAR_WIDTH, Sidebar
 from q_agent.ui.theme import apply_theme
 from q_agent.ui.toolbar import Toolbar
 
+# left panel 固定宽度（含 sidebar + 底部硬件监控，等于 sidebar 宽度）
+LEFT_PANEL_WIDTH = SIDEBAR_WIDTH
+
 
 class MainWindow(QMainWindow):
-    """Q-agent 主窗口。"""
+    """Q-agent 主窗口（v0.0.14：left panel 贴纸式挂载 sidebar + hardware_monitor）。"""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -60,7 +75,7 @@ class MainWindow(QMainWindow):
         self._build_layout()
 
     def _build_layout(self) -> None:
-        # 中央容器：水平布局 [侧边栏 | 主内容区]
+        # 中央容器：水平布局 [left_panel | 主内容区]
         central = QWidget(self)
         from PySide6.QtWidgets import QHBoxLayout
 
@@ -68,9 +83,21 @@ class MainWindow(QMainWindow):
         h_layout.setContentsMargins(0, 0, 0, 0)
         h_layout.setSpacing(0)
 
-        # 侧边栏
-        self.sidebar = Sidebar(central)
-        h_layout.addWidget(self.sidebar)
+        # left panel（贴纸式挂载点：sidebar stretch=1 + hardware_monitor 底部固定 160px）
+        left_panel = QWidget(central)
+        left_panel.setFixedWidth(LEFT_PANEL_WIDTH)
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(0)
+
+        self.sidebar = Sidebar(left_panel)
+        left_layout.addWidget(self.sidebar, stretch=1)
+
+        self.hardware_monitor = HardwareMonitor(left_panel)
+        left_layout.addWidget(self.hardware_monitor)
+
+        left_panel.setLayout(left_layout)
+        h_layout.addWidget(left_panel)
 
         # 主内容区（QStackedWidget）
         self.stack = QStackedWidget(central)
@@ -119,11 +146,11 @@ class MainWindow(QMainWindow):
         # 主动调一次让 chat_page 初始禁用发送按钮（与 toolbar 初始状态对齐）
         QTimer.singleShot(150, self._sync_send_enabled)
         # 启动硬件监控 worker（延迟 200ms 让 UI 先绘制，避免首帧空白）
-        QTimer.singleShot(200, self.sidebar.hardware_monitor.start)
+        QTimer.singleShot(200, self.hardware_monitor.start)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """窗口关闭时优雅停止 hardware_monitor worker，避免线程悬挂。"""
-        self.sidebar.hardware_monitor.stop()
+        self.hardware_monitor.stop()
         super().closeEvent(event)
 
     def _sync_send_enabled(self) -> None:
