@@ -2,3 +2,4 @@
 
 from q_agent.llm.base import LLMClient  # noqa: F401
 from q_agent.llm.local import LocalLLMClient  # noqa: F401
+from q_agent.llm.ollama import OllamaError, list_models  # noqa: F401

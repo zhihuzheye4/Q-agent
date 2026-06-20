@@ -370,6 +370,19 @@ def icon_about_active() -> str:
     return render_svg(body)
 
 
+def icon_refresh_active() -> str:
+    """工具栏：刷新（Lucide refresh-cw 双圆弧箭头）"""
+    body = group(
+        [
+            path("M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"),
+            path("M21 3v5h-5"),
+            path("M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"),
+            path("M3 21v-5h5"),
+        ]
+    )
+    return render_svg(body)
+
+
 # ===== 图标注册表 =====
 
 
@@ -387,6 +400,7 @@ ICONS: list[tuple[str, str, Callable[[], str]]] = [
     ("new-chat-active", "UI", icon_new_chat_active),
     ("clear-active", "UI", icon_clear_active),
     ("about-active", "UI", icon_about_active),
+    ("refresh-active", "UI", icon_refresh_active),
 ]
 
 

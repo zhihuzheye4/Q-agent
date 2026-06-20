@@ -99,6 +99,11 @@ class MainWindow(QMainWindow):
         # 状态栏
         self.statusBar().showMessage("就绪")
 
+        # 启动后自动检测一次本地 Ollama 模型（延迟 100ms 让 UI 先绘制）
+        from PySide6.QtCore import QTimer
+
+        QTimer.singleShot(100, self.toolbar.refresh_models)
+
     def _show_status(self, text: str) -> None:
         self.statusBar().showMessage(text, 5000)
 
