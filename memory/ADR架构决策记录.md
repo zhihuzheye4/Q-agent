@@ -323,3 +323,61 @@ class ModelRefreshWorker(QThread):
 - 图标：新增 `refresh-active.svg`（Lucide refresh-cw 风格）
 - 测试：`tests/test_llm_ollama.py` 11 例 + `tests/test_ui_toolbar.py` 11 例
 - .exe：v0.0.4 已包含
+
+## ADR-019：模型下拉框本地/云端分组 + AI 气泡模型名标签
+
+- **时间**：2026-06-20
+- **状态**：采纳
+- **取代**：无
+
+### 背景
+
+用户提出两个修改：
+1. 下拉框区分本地和云端（首版仅 UI 分组占位，不接云端 API）
+2. 对话气泡上方显示当前回答的模型名
+
+### 决策
+
+1. **下拉框分组实现**：QComboBox 改用 QStandardItemModel（QComboBox.addItem 不支持单 item disabled）。分组头用 disabled QStandardItem，setData("header", Qt.UserRole) 标记，setForeground 灰色 + setBold
+2. **分组结构**：[本地 header + 本地模型/占位 + 云端 header + 云端预置项]。本地无模型时占位"未发现本地模型"，云端组照常显示
+3. **云端预置**：3 家代表各 1 个（gpt-4o / claude-opus-4-7 / gemini-2.5-pro），后续真接 API 时改为动态拉取（ADR-020+）
+4. **检测失败 UX**：仅显示"未发现本地 LLM"占位项，不加云端组（让用户先解决本地连接问题）
+5. **AI 气泡模型标签**：
+   - _add_message(role, text, model_name: str | None = None)
+   - AI 消息时在气泡上方加 QLabel#ModelLabel 小灰字（11px #94A3B8）
+   - model_name 来源：ChatPage._model_provider 回调，MainWindow 注入 lambda: self.toolbar.current_model()
+   - 未注入或返回 None 时显示"(未选模型)"占位
+6. **气泡布局重构**：AI 行从 [气泡][stretch] 改为 [垂直列：模型名label + 气泡][stretch]
+7. **resize 优化**：维护 _bubble_labels 列表，resizeEvent 批量更新最大宽度（适配嵌套结构，比递归遍历更清晰高效）
+
+### 关键代码
+
+```python
+# 分组头：disabled + 灰色 + 粗体
+item = QStandardItem(text)
+item.setEnabled(False)
+item.setData("header", ITEM_ROLE)
+item.setForeground(QBrush(QColor("#94A3B8")))
+font = item.font(); font.setBold(True); item.setFont(font)
+
+# current_model 内部检查 isEnabled（header disabled 时返回 None）
+item = self._combo_model.item(idx)
+if item is None or not item.isEnabled():
+    return None
+
+# ChatPage 注入 model_provider
+self.chat_page.set_model_provider(self.toolbar.current_model)
+```
+
+### 后果
+
+- 优点：用户可视觉区分本地/云端，未来真接 API 时分组结构不破坏
+- 优点：AI 气泡带模型名，下一阶段接真 LLM 后天然就是"这个模型答的"
+- 取舍：云端预置为静态，选了云端模型也不会真调用（UI 占位）——下一阶段接真 API
+- 取舍：用户气泡不带模型名（用户自己发的消息，不需要）
+
+### 影响
+
+- 文件：`q_agent/ui/toolbar.py`（QStandardItemModel + 分组 + _on_models_found 重构）、`q_agent/ui/pages/chat_page.py`（_add_message 加 model_name + 嵌套布局 + set_model_provider + _bubble_labels）、`q_agent/ui/main_window.py`（注入 model_provider）、`q_agent/ui/theme.py`（ModelLabel 样式）
+- 测试：`tests/test_ui_toolbar.py` 13 例 + `tests/test_ui_imports.py` 3 例新增
+- .exe：v0.0.5 已包含
