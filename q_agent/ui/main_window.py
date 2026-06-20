@@ -1,37 +1,34 @@
 """主窗口：QMainWindow 主框架。
 
-结构（v0.0.14 贴纸式重构）：
+结构（v0.0.15 硬件监控独立窗口）：
     +---------------------------+
-    | menu_bar                   |
+    | menu_bar（文件/监控/帮助）   |
     +---------------------------+
     | toolbar                    |
     +---+-----------------------+
-    | L |   QStackedWidget      |
-    | e |   (ChatPage /          |
-    | f |    SkillsPage /        |
-    | t |    MemoryPage /         |
-    | P |    SettingsPage)       |
+    | S |   QStackedWidget      |
+    | i |   (ChatPage /          |
+    | d |    SkillsPage /        |
+    | e |    MemoryPage /         |
+    | b |    SettingsPage)       |
     | a |                        |
-    | n |                        |
-    | e |                        |
-    | l |                        |
+    | r |                        |
     +---+-----------------------+
     | status_bar                 |
     +---------------------------+
 
-Left Panel（v0.0.14 新增，贴纸式挂载点）：
+Left Panel（v0.0.15 简化）：
     +---------------+
     | Sidebar       |  ← 4 tab（对话/技能/记忆/设置）stretch=1
     | (QListWidget) |
     +---------------+
-    | HardwareMonitor|  ← 硬件监控曲线 4 折线 60s 历史，固定 160px
-    +---------------+
     整体 fixed 200px 宽，放进水平布局左侧
 
-v0.0.14 贴纸式原则（CLAUDE.md 第二十一节）：
-    - Sidebar 保持 v0.0.9 QListWidget 子类原貌，零改动
-    - HardwareMonitor 独立 widget，由 MainWindow left panel 一行 addWidget 挂载
-    - 删除/新增硬件监控只动 HardwareMonitor 文件 + MainWindow 一行挂载，Sidebar 零影响
+v0.0.15 变更（贴纸式迁移，CLAUDE.md 第二十一节）：
+    - 硬件监控从 left panel 底部常驻 → 独立窗口（menu_bar "监控"菜单 triggered 弹出）
+    - left panel 只剩 sidebar（恢复 v0.0.9 前的极简结构）
+    - MainWindow 新增 _open_hardware_monitor() + 持有 _hw_window 引用，closeEvent 关闭
+    - hardware_monitor.py 只保留 Worker + 常量，HardwareMonitorWindow 独立 widget 文件
 """
 
 from __future__ import annotations
@@ -51,7 +48,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from q_agent.ui.hardware_monitor import HardwareMonitor
+from q_agent.ui.hardware_monitor_window import HardwareMonitorWindow
 from q_agent.ui.menu_bar import MenuBar
 from q_agent.ui.pages.chat_page import ChatPage
 from q_agent.ui.pages.memory_page import MemoryPage
@@ -61,17 +58,18 @@ from q_agent.ui.sidebar import SIDEBAR_WIDTH, Sidebar
 from q_agent.ui.theme import apply_theme
 from q_agent.ui.toolbar import Toolbar
 
-# left panel 固定宽度（含 sidebar + 底部硬件监控，等于 sidebar 宽度）
+# left panel 固定宽度（仅 sidebar，等于 sidebar 宽度）
 LEFT_PANEL_WIDTH = SIDEBAR_WIDTH
 
 
 class MainWindow(QMainWindow):
-    """Q-agent 主窗口（v0.0.14：left panel 贴纸式挂载 sidebar + hardware_monitor）。"""
+    """Q-agent 主窗口（v0.0.15：硬件监控迁移为独立窗口，left panel 仅 sidebar）。"""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Q-agent")
         self.resize(1200, 800)
+        self._hw_window: HardwareMonitorWindow | None = None
         self._build_layout()
 
     def _build_layout(self) -> None:
@@ -83,7 +81,7 @@ class MainWindow(QMainWindow):
         h_layout.setContentsMargins(0, 0, 0, 0)
         h_layout.setSpacing(0)
 
-        # left panel（贴纸式挂载点：sidebar stretch=1 + hardware_monitor 底部固定 160px）
+        # left panel（仅 sidebar，贴纸式挂载点保留供未来扩展）
         left_panel = QWidget(central)
         left_panel.setFixedWidth(LEFT_PANEL_WIDTH)
         left_layout = QVBoxLayout(left_panel)
@@ -92,9 +90,6 @@ class MainWindow(QMainWindow):
 
         self.sidebar = Sidebar(left_panel)
         left_layout.addWidget(self.sidebar, stretch=1)
-
-        self.hardware_monitor = HardwareMonitor(left_panel)
-        left_layout.addWidget(self.hardware_monitor)
 
         left_panel.setLayout(left_layout)
         h_layout.addWidget(left_panel)
@@ -132,8 +127,8 @@ class MainWindow(QMainWindow):
         # toolbar 用户切换模型 → chat_page 清空当前对话 + 系统提示（v0.0.9 新增）
         self.toolbar.model_selected.connect(self.chat_page._on_model_changed)
 
-        # 菜单栏
-        self.menu = MenuBar(self)
+        # 菜单栏（注入 monitor_callback，"监控"菜单 triggered → 弹出独立窗口）
+        self.menu = MenuBar(self, monitor_callback=self._open_hardware_monitor)
 
         # 状态栏
         self.statusBar().showMessage("就绪")
@@ -145,12 +140,22 @@ class MainWindow(QMainWindow):
         # 检测完成后会触发 model_group_changed，但启动时下拉框初始占位 disabled，
         # 主动调一次让 chat_page 初始禁用发送按钮（与 toolbar 初始状态对齐）
         QTimer.singleShot(150, self._sync_send_enabled)
-        # 启动硬件监控 worker（延迟 200ms 让 UI 先绘制，避免首帧空白）
-        QTimer.singleShot(200, self.hardware_monitor.start)
+
+    def _open_hardware_monitor(self) -> None:
+        """v0.0.15 新增：菜单"打开监控"triggered → 实例化 + show HardwareMonitorWindow。
+
+        若已打开则再次 show + raise 激活，避免重复实例化。
+        """
+        if self._hw_window is None:
+            self._hw_window = HardwareMonitorWindow(self)
+        self._hw_window.start()
+        self._hw_window.show()
+        self._hw_window.raise_()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """窗口关闭时优雅停止 hardware_monitor worker，避免线程悬挂。"""
-        self.hardware_monitor.stop()
+        """窗口关闭时优雅关闭硬件监控独立窗口（如有），避免 worker 线程悬挂。"""
+        if self._hw_window is not None:
+            self._hw_window.close()
         super().closeEvent(event)
 
     def _sync_send_enabled(self) -> None:

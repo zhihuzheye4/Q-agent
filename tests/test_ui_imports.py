@@ -100,7 +100,7 @@ def test_theme_color_constants() -> None:
 
 
 def test_main_window_constructs(qapp) -> None:  # noqa: ANN001
-    """MainWindow 可构造，4 tab + 4 stack 页 + left panel 含 hardware_monitor。"""
+    """MainWindow 可构造，4 tab + 4 stack 页 + 菜单栏注入 monitor_callback。"""
     from q_agent.ui.main_window import MainWindow
 
     w = MainWindow()
@@ -108,8 +108,11 @@ def test_main_window_constructs(qapp) -> None:  # noqa: ANN001
     # v0.0.14：sidebar 恢复 QListWidget 子类，count() 直接可用
     assert w.sidebar.count() == 4, "侧边栏应有 4 个 tab"
     assert w.stack.count() == 4, "主内容区应有 4 个页面"
-    # v0.0.14：hardware_monitor 由 MainWindow left panel 独立挂载（非 sidebar 子组件）
-    assert w.hardware_monitor is not None
+    # v0.0.15：hardware_monitor 从 left panel 移除，独立窗口由 menu 触发
+    assert not hasattr(w, "hardware_monitor"), "v0.0.15 应移除 w.hardware_monitor 属性"
+    # v0.0.15：menu 注入 monitor_callback，_hw_window 初始为 None
+    assert w._hw_window is None, "_hw_window 应初始为 None"
+    assert w.menu._monitor_callback is not None, "menu 应注入 monitor_callback"
 
 
 def test_sidebar_tab_switches_stack(qapp) -> None:  # noqa: ANN001

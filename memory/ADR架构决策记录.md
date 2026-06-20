@@ -759,3 +759,43 @@ v0.0.14 治本回退 + 贴纸式重构：
 - 取代 ADR-026 中"Sidebar 从 QListWidget 改为 QFrame 容器"部分（ADR-026 其余关于 HardwareMonitor 指标/数据源/采样/渲染/容错/生命周期的决策保留不变）
 - 落实 ADR-027 贴纸式开发原则的首个执行案例
 - 补强第十七节可执行安装包规则（打包命令固化）
+
+---
+
+## ADR-029：硬件监控独立窗口 + menu_bar 回调模式（v0.0.15）
+
+**日期**：2026-06-20
+**状态**：生效
+**取代**：ADR-026 中"sidebar 底部常驻 HardwareMonitor widget"部分（ADR-026 其余指标/数据源/采样/容错决策保留，ADR-028 已取代容器化部分，本 ADR 进一步取代"挂载位置"部分）
+
+### 背景
+
+v0.0.12 把硬件监控塞进 sidebar 底部（QFrame 容器内嵌），v0.0.14 治本回退为 MainWindow left panel 一行 `addWidget` 挂载——但仍占用 left panel 160px 底部常驻空间。v0.0.15 用户进一步要求："把当前的 GPU 监控相关的从原来的地方移除，在上方文件/帮助的菜单栏添加监控按钮，点击监控会弹出一个独立窗口，显示 GPU 利用率、CPU 利用率、显存占用、内存占用，以及 CPU 和 GPU 的温度。"
+
+### 决策
+
+1. **硬件监控从 left panel 常驻 → 独立窗口**：MainWindow left panel 只剩 sidebar，恢复极简结构。HardwareMonitorWindow（新文件 `q_agent/ui/hardware_monitor_window.py`）作为独立 QWidget 窗口，由 menu_bar "监控"菜单 triggered 弹出。
+2. **menu_bar 回调模式扩展公开接口**：MenuBar.__init__ 新增 `monitor_callback: Callable[[], None] | None = None` 参数（类比 Toolbar 的 `status_callback` 注入模式）。新增 `_build_monitor_menu()` 方法，"打开监控"QAction `triggered.connect(monitor_callback)`。不侵入既有 `_build_file_menu` / `_build_help_menu`。
+3. **MainWindow 持有 _hw_window 引用**：`_open_hardware_monitor()` 实例化 + show + raise；若已打开则再次 show + raise 激活避免重复实例化；closeEvent 关闭 _hw_window 避免 worker 线程悬挂。
+4. **指标扩展为 6 个**：METRICS 增加 `cpu_temp`（Windows psutil 不支持 sensors_temperatures，永远 None）+ `gpu_temp`（pynvml `nvmlDeviceGetTemperature(handle, NVML_TEMPERATURE_GPU=0)`）。温度与百分比数值范围 0-100 巧合一致，可共用 y 轴。
+5. **hardware_monitor.py 拆分**：只保留 Worker + 常量 + METRICS + collect_sample_sync（测试辅助）；HardwareMonitorWindow + MonitorCell 独立到 hardware_monitor_window.py，符合贴纸式"独立 widget 文件"原则。
+
+### 取舍
+
+- **常驻 vs 独立窗口**：常驻占用 left panel 160px 空间，独立窗口只在需要时弹出。用户明确选择独立窗口，节省主窗口空间。
+- **menu_bar callback 注入 vs 直接持引用**：callback 注入保持 MenuBar 通用性（不依赖 MainWindow 实现细节），类比 Toolbar status_callback 已有模式，一致性好。MenuBar 不直接 import HardwareMonitorWindow，避免双向耦合。
+- **温度指标加入 vs 维持 4 指标**：用户明确要求显示 CPU/GPU 温度。Windows psutil 不支持 CPU 温度采集，标记 N/A 占位（灰色横线）比强行引入第三方库（如 wmi/LibreHardwareMonitor）更符合"零第三方依赖起步"原则。GPU 温度 pynvml 原生支持，与 GPU 利用率/显存共用 NVML handle 零额外开销。
+
+### 后果
+
+- v0.0.15 起 left panel 仅 sidebar，主窗口空间释放给主内容区
+- 硬件监控按需打开，关闭后 worker 优雅停止（`worker.stop() + wait(2000)`）
+- menu_bar 获得第二个 callback 注入点（首个为 status_callback），形成"MenuBar 通用 + MainWindow 注入回调"模式，后续新菜单项（如"打开日志"）沿用此模式
+- METRICS 6 指标 + 单位字段（% / °C）数据结构定型，MonitorCell 按 unit 切换数值显示格式（`f"{last:.0f}%"` vs `f"{last:.0f}°C"`）
+
+### 关联
+
+- 取代 ADR-026 中"sidebar 底部常驻挂载"部分（ADR-026 其余指标/数据源/采样/容错决策保留）
+- 落实 ADR-027 贴纸式开发原则的第二个执行案例（首个为 v0.0.14 left panel 一行挂载）
+- 与 ADR-024（加载指示器）共享"独立 widget 文件"贴纸式模式
+

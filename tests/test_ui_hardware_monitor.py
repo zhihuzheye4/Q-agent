@@ -1,13 +1,14 @@
-"""HardwareMonitor 硬件监控曲线单测（v0.0.12）。
+"""硬件监控单测（v0.0.15 重构）。
 
 覆盖：
-    - HardwareMonitor 构造 + 固定高度 + worker 子组件
-    - _on_sample 追加历史 + 截断到 HISTORY_SECONDS
-    - _on_sample None 段不崩
-    - paintEvent 渲染不崩（含无数据/部分数据/全数据三种场景）
-    - _draw_line None 段断开（不连线）
-    - collect_sample_sync 同步采集器返回 4 字段 dict（不抛错）
     - HardwareMonitorWorker 构造（pynvml 不可用时 _nvml_ok=False）
+    - collect_sample_sync 返回 6 字段 dict（含 cpu_temp/gpu_temp，不抛错）
+    - MonitorCell 构造 + set_sample 追加 + 截断 + None 不崩
+    - MonitorCell paintEvent 三场景（空/部分/全数据）不崩
+    - MonitorCell _draw_line None 段断开 + 全 None 占位横线
+    - HardwareMonitorWindow 构造（6 cell + worker + 标题）
+    - HardwareMonitorWindow _on_sample 分发给 6 cell
+    - HardwareMonitorWindow start/stop 不崩
 """
 
 from __future__ import annotations
@@ -35,135 +36,7 @@ def qapp() -> QApplication:
     yield app
 
 
-def test_hardware_monitor_constructs_with_fixed_height(qapp: QApplication) -> None:
-    """HardwareMonitor 构造 OK，固定高度 = MONITOR_HEIGHT。"""
-    from q_agent.ui.hardware_monitor import MONITOR_HEIGHT, HardwareMonitor
-
-    monitor = HardwareMonitor()
-    assert monitor.height() == MONITOR_HEIGHT
-    assert monitor.objectName() == "HardwareMonitor"
-    # 4 个指标历史均为空 list
-    assert all(monitor._history[k] == [] for k in ("cpu", "gpu", "vram", "ram"))
-    # worker 子组件存在
-    assert monitor._worker is not None
-
-
-def test_on_sample_appends_and_truncates_history(qapp: QApplication) -> None:
-    """_on_sample 追加样本到各指标历史 + 超 HISTORY_SECONDS 截断。"""
-    from q_agent.ui.hardware_monitor import HISTORY_SECONDS, HardwareMonitor
-
-    monitor = HardwareMonitor()
-    # 注入 HISTORY_SECONDS + 5 个样本，验证截断到 HISTORY_SECONDS
-    for i in range(HISTORY_SECONDS + 5):
-        sample = {"cpu": float(i), "gpu": float(i), "vram": float(i), "ram": float(i)}
-        monitor._on_sample(sample)
-    for key in ("cpu", "gpu", "vram", "ram"):
-        assert len(monitor._history[key]) == HISTORY_SECONDS
-        # 末尾应该是最后注入的样本值
-        assert monitor._history[key][-1] == float(HISTORY_SECONDS + 4)
-
-
-def test_on_sample_none_does_not_crash(qapp: QApplication) -> None:
-    """_on_sample 收到 None 字段时 append None，不崩。"""
-    from q_agent.ui.hardware_monitor import HardwareMonitor
-
-    monitor = HardwareMonitor()
-    sample = {"cpu": None, "gpu": None, "vram": None, "ram": None}
-    monitor._on_sample(sample)
-    for key in ("cpu", "gpu", "vram", "ram"):
-        assert monitor._history[key] == [None]
-
-
-def test_paint_event_renders_without_crash_empty_history(qapp: QApplication) -> None:
-    """paintEvent 在无数据时不崩（4 条灰色 N/A 占位横线）。"""
-    from q_agent.ui.hardware_monitor import HardwareMonitor
-
-    monitor = HardwareMonitor()
-    monitor.resize(200, 160)
-    monitor.show()
-    QTest.qWait(50)
-    # 直接触发 paintEvent（不依赖事件循环）
-    event = QPaintEvent(monitor.rect())
-    monitor.paintEvent(event)
-
-
-def test_paint_event_renders_with_partial_data(qapp: QApplication) -> None:
-    """paintEvent 在有部分数据（部分 None）时不崩。"""
-    from q_agent.ui.hardware_monitor import HardwareMonitor
-
-    monitor = HardwareMonitor()
-    monitor.resize(200, 160)
-    monitor.show()
-    # 注入 5 个样本，CPU/RAM 有值，GPU/VRAM 全 None
-    for _ in range(5):
-        monitor._on_sample({"cpu": 50.0, "gpu": None, "vram": None, "ram": 70.0})
-    event = QPaintEvent(monitor.rect())
-    monitor.paintEvent(event)
-
-
-def test_paint_event_renders_with_full_data(qapp: QApplication) -> None:
-    """paintEvent 在 4 指标全有数据时不崩。"""
-    from q_agent.ui.hardware_monitor import HardwareMonitor
-
-    monitor = HardwareMonitor()
-    monitor.resize(200, 160)
-    monitor.show()
-    for i in range(30):
-        monitor._on_sample(
-            {
-                "cpu": float(40 + i % 30),
-                "gpu": float(60 + i % 20),
-                "vram": float(50 + i % 25),
-                "ram": float(70 + i % 15),
-            }
-        )
-    event = QPaintEvent(monitor.rect())
-    monitor.paintEvent(event)
-
-
-def test_draw_line_none_segment_breaks_line(qapp: QApplication) -> None:
-    """_draw_line 在 None 段断开不连线（prev_x/prev_y 重置）。"""
-    from PySide6.QtGui import QColor, QImage, QPainter
-
-    from q_agent.ui.hardware_monitor import COLOR_CPU, HardwareMonitor
-
-    monitor = HardwareMonitor()
-    monitor.resize(200, 160)
-    # 历史含 None 段：[10, 20, None, 40, 50]
-    history: list[float | None] = [10.0, 20.0, None, 40.0, 50.0]
-    # 用 QImage 作为画布（不依赖 widget 显示）
-    img = QImage(200, 160, QImage.Format.Format_ARGB32)
-    img.fill(QColor("#0F172A"))
-    painter = QPainter(img)
-    monitor._draw_line(painter, history, COLOR_CPU, 8, 24, 184, 132)
-    painter.end()
-    # 不崩即通过
-
-
-def test_draw_line_all_none_draws_na_placeholder(qapp: QApplication) -> None:
-    """_draw_line 全 None 时画灰色 N/A 占位横线（不崩）。"""
-    from PySide6.QtGui import QColor, QImage, QPainter
-
-    from q_agent.ui.hardware_monitor import HardwareMonitor
-
-    monitor = HardwareMonitor()
-    history: list[float | None] = [None, None, None]
-    img = QImage(200, 160, QImage.Format.Format_ARGB32)
-    img.fill(QColor("#0F172A"))
-    painter = QPainter(img)
-    monitor._draw_line(painter, history, "#3B82F6", 8, 24, 184, 132)
-    painter.end()
-
-
-def test_collect_sample_sync_returns_4_fields_dict() -> None:
-    """collect_sample_sync 返回含 4 字段的 dict（即使依赖缺失也不抛错）。"""
-    from q_agent.ui.hardware_monitor import collect_sample_sync
-
-    sample = collect_sample_sync()
-    assert set(sample.keys()) == {"cpu", "gpu", "vram", "ram"}
-    # 每个字段是 float 或 None
-    for key in ("cpu", "gpu", "vram", "ram"):
-        assert sample[key] is None or isinstance(sample[key], float)
+# ===== HardwareMonitorWorker =====
 
 
 def test_worker_init_handles_no_pynvml(qapp: QApplication) -> None:
@@ -171,8 +44,186 @@ def test_worker_init_handles_no_pynvml(qapp: QApplication) -> None:
     from q_agent.ui.hardware_monitor import HardwareMonitorWorker
 
     worker = HardwareMonitorWorker(interval_ms=1000)
-    # 不强制要求 _nvml_ok 值（取决于运行环境），但 _pynvml 字段必须存在
     assert hasattr(worker, "_pynvml")
     assert hasattr(worker, "_nvml_ok")
     assert hasattr(worker, "_stop")
     assert worker._stop is False
+
+
+def test_collect_sample_sync_returns_6_fields_dict() -> None:
+    """collect_sample_sync 返回含 6 字段的 dict（含 cpu_temp/gpu_temp，不抛错）。"""
+    from q_agent.ui.hardware_monitor import collect_sample_sync
+
+    sample = collect_sample_sync()
+    assert set(sample.keys()) == {"cpu", "gpu", "vram", "ram", "cpu_temp", "gpu_temp"}
+    for key in ("cpu", "gpu", "vram", "ram", "cpu_temp", "gpu_temp"):
+        assert sample[key] is None or isinstance(sample[key], float)
+
+
+def test_metrics_list_has_6_entries() -> None:
+    """METRICS 元数据列表含 6 个指标元组。"""
+    from q_agent.ui.hardware_monitor import METRICS
+
+    assert len(METRICS) == 6
+    keys = [m[0] for m in METRICS]
+    assert keys == ["cpu", "gpu", "vram", "ram", "cpu_temp", "gpu_temp"]
+    # 每个元组 4 字段（key, label, color, unit）
+    for entry in METRICS:
+        assert len(entry) == 4
+
+
+# ===== MonitorCell =====
+
+
+def test_monitor_cell_constructs(qapp: QApplication) -> None:
+    """MonitorCell 构造 OK，固定高度 + 最小宽度 + 空 history。"""
+    from q_agent.ui.hardware_monitor_window import CELL_HEIGHT, MonitorCell
+
+    cell = MonitorCell("cpu", "CPU", "#3B82F6", "%")
+    assert cell.height() == CELL_HEIGHT
+    assert cell._history == []
+    assert cell._key == "cpu"
+    assert cell._unit == "%"
+
+
+def test_monitor_cell_set_sample_appends_and_truncates(qapp: QApplication) -> None:
+    """set_sample 追加历史 + 超 HISTORY_SECONDS 截断。"""
+    from q_agent.ui.hardware_monitor import HISTORY_SECONDS
+    from q_agent.ui.hardware_monitor_window import MonitorCell
+
+    cell = MonitorCell("cpu", "CPU", "#3B82F6", "%")
+    for i in range(HISTORY_SECONDS + 5):
+        cell.set_sample(float(i))
+    assert len(cell._history) == HISTORY_SECONDS
+    assert cell._history[-1] == float(HISTORY_SECONDS + 4)
+
+
+def test_monitor_cell_set_sample_none_does_not_crash(qapp: QApplication) -> None:
+    """set_sample(None) append None，不崩。"""
+    from q_agent.ui.hardware_monitor_window import MonitorCell
+
+    cell = MonitorCell("gpu_temp", "GPU°C", "#EF4444", "°C")
+    cell.set_sample(None)
+    assert cell._history == [None]
+
+
+def test_monitor_cell_paint_event_empty(qapp: QApplication) -> None:
+    """MonitorCell paintEvent 空历史不崩（N/A 占位横线）。"""
+    from q_agent.ui.hardware_monitor_window import MonitorCell
+
+    cell = MonitorCell("cpu", "CPU", "#3B82F6", "%")
+    cell.resize(280, 150)
+    cell.show()
+    QTest.qWait(20)
+    event = QPaintEvent(cell.rect())
+    cell.paintEvent(event)
+
+
+def test_monitor_cell_paint_event_partial(qapp: QApplication) -> None:
+    """MonitorCell paintEvent 部分数据（含 None）不崩。"""
+    from q_agent.ui.hardware_monitor_window import MonitorCell
+
+    cell = MonitorCell("gpu", "GPU", "#22C55E", "%")
+    cell.resize(280, 150)
+    cell.show()
+    for v in (10.0, None, 30.0, None, 50.0):
+        cell.set_sample(v)
+    event = QPaintEvent(cell.rect())
+    cell.paintEvent(event)
+
+
+def test_monitor_cell_paint_event_full(qapp: QApplication) -> None:
+    """MonitorCell paintEvent 30 个样本全有值不崩。"""
+    from q_agent.ui.hardware_monitor_window import MonitorCell
+
+    cell = MonitorCell("cpu_temp", "CPU°C", "#94A3B8", "°C")
+    cell.resize(280, 150)
+    cell.show()
+    for i in range(30):
+        cell.set_sample(float(40 + i % 30))
+    event = QPaintEvent(cell.rect())
+    cell.paintEvent(event)
+
+
+def test_monitor_cell_draw_line_none_breaks(qapp: QApplication) -> None:
+    """_draw_line None 段断开不连线。"""
+    from PySide6.QtGui import QColor, QImage, QPainter
+
+    from q_agent.ui.hardware_monitor_window import MonitorCell
+
+    cell = MonitorCell("cpu", "CPU", "#3B82F6", "%")
+    history: list[float | None] = [10.0, 20.0, None, 40.0, 50.0]
+    img = QImage(280, 150, QImage.Format.Format_ARGB32)
+    img.fill(QColor("#0F172A"))
+    painter = QPainter(img)
+    cell._draw_line(painter, history, "#3B82F6", 8, 24, 264, 122)
+    painter.end()
+
+
+def test_monitor_cell_draw_line_all_none(qapp: QApplication) -> None:
+    """_draw_line 全 None 画灰色 N/A 占位横线，不崩。"""
+    from PySide6.QtGui import QColor, QImage, QPainter
+
+    from q_agent.ui.hardware_monitor_window import MonitorCell
+
+    cell = MonitorCell("gpu_temp", "GPU°C", "#EF4444", "°C")
+    history: list[float | None] = [None, None, None]
+    img = QImage(280, 150, QImage.Format.Format_ARGB32)
+    img.fill(QColor("#0F172A"))
+    painter = QPainter(img)
+    cell._draw_line(painter, history, "#EF4444", 8, 24, 264, 122)
+    painter.end()
+
+
+# ===== HardwareMonitorWindow =====
+
+
+def test_hardware_monitor_window_constructs(qapp: QApplication) -> None:
+    """HardwareMonitorWindow 构造 OK，6 个 cell + worker + 固定尺寸。"""
+    from q_agent.ui.hardware_monitor import METRICS
+    from q_agent.ui.hardware_monitor_window import (
+        WINDOW_HEIGHT,
+        WINDOW_WIDTH,
+        HardwareMonitorWindow,
+    )
+
+    w = HardwareMonitorWindow()
+    assert w.windowTitle().startswith("硬件监控")
+    assert w.width() == WINDOW_WIDTH
+    assert w.height() == WINDOW_HEIGHT
+    # 6 cell 按 METRICS 顺序
+    assert len(w._cells) == 6
+    for key, _label, _color, _unit in METRICS:
+        assert key in w._cells
+    # worker 子组件存在
+    assert w._worker is not None
+
+
+def test_hardware_monitor_window_on_sample_dispatches(qapp: QApplication) -> None:
+    """_on_sample 分发样本到 6 个 cell（每个 cell history 末尾 = 样本值）。"""
+    from q_agent.ui.hardware_monitor_window import HardwareMonitorWindow
+
+    w = HardwareMonitorWindow()
+    sample = {
+        "cpu": 50.0,
+        "gpu": 60.0,
+        "vram": 70.0,
+        "ram": 80.0,
+        "cpu_temp": None,
+        "gpu_temp": 65.0,
+    }
+    w._on_sample(sample)
+    for key in ("cpu", "gpu", "vram", "ram", "cpu_temp", "gpu_temp"):
+        cell = w._cells[key]
+        assert cell._history[-1] == sample[key], f"{key} cell 末尾应等于样本值"
+
+
+def test_hardware_monitor_window_start_stop_no_crash(qapp: QApplication) -> None:
+    """start/stop 不崩（worker 可能未实际启动因环境而异）。"""
+    from q_agent.ui.hardware_monitor_window import HardwareMonitorWindow
+
+    w = HardwareMonitorWindow()
+    # 不调 start（避免实际跑线程），调 stop 应安全（worker 未 running）
+    w.stop()
+    # 再次 stop 不崩（幂等）
+    w.stop()
