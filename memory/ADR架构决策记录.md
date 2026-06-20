@@ -381,3 +381,33 @@ self.chat_page.set_model_provider(self.toolbar.current_model)
 - 文件：`q_agent/ui/toolbar.py`（QStandardItemModel + 分组 + _on_models_found 重构）、`q_agent/ui/pages/chat_page.py`（_add_message 加 model_name + 嵌套布局 + set_model_provider + _bubble_labels）、`q_agent/ui/main_window.py`（注入 model_provider）、`q_agent/ui/theme.py`（ModelLabel 样式）
 - 测试：`tests/test_ui_toolbar.py` 13 例 + `tests/test_ui_imports.py` 3 例新增
 - .exe：v0.0.5 已包含
+
+## ADR-020：llm 层对称骨架 + 安装包只保留最新
+
+- **时间**：2026-06-20
+- **状态**：采纳
+- **背景**：用户三问之一——"软件并没有区分云端和本地，或者你编写的 py 文件并没有区分云端和本地的能力？"——刺到了痛点：v0.0.4 时 ollama.py 仅作为检测函数（list_models + NotImplementedError chat/complete），未纳入 LLMClient 体系；v0.0.5 的 UI 分组（本地/云端 header）只是壳，后端根本没有对称的 client 类层级。用户三问之二——"为什么不先完成最小闭环再添加枝叶"——确认了"现在就补对称骨架"的方向，理由是先把后端结构对称好，下一阶段接真 API 时只填方法体不动构造接口，避免后期改动带来的 bug。同时用户三问之一——"软件包不需要保留每一代，只需要保留最新一代"——要求改安装包规则。
+- **决策**：
+  1. **llm 层对称骨架**：
+     - `q_agent/llm/ollama.py` 升级：新增 `OllamaClient(LLMClient)` 子类，构造 (model, host) + chat/complete 抛 NotImplementedError。list_models() 函数保留不变（UI 检测用）
+     - `q_agent/llm/cloud/` 新建子包：`__init__.py` + `openai.py` + `anthropic.py` + `gemini.py` 三个 stub，构造 (model, api_key, base_url) + chat/complete 抛 NotImplementedError
+     - `q_agent/llm/__init__.py` 统一导出 LLMClient / OllamaClient / OllamaError / list_models / LocalLLMClient / OpenAIClient / AnthropicClient / GeminiClient
+     - 后端分类清晰：local（Ollama + llama.cpp 占位）+ cloud（OpenAI / Anthropic / Gemini）
+  2. **所有 client 构造成功，chat/complete 抛 NotImplementedError**：下一阶段接真 API 时只填方法体，不动构造与接口（与 OllamaClient 保持一致模式）
+  3. **依赖管理坚守 ADR-015**：urllib 标准库零新运行时依赖，不引入 openai/anthropic/google-generativeai 等 SDK
+  4. **安装包只保留最新**（取代 ADR-010 的"历史版本长期保留不删"部分）：
+     - 每次打新版本 .exe 时，删掉上一版子目录，只留当前最新版本
+     - CLAUDE.md §17 同步更新，安装包/README.md 增加版本历史表保留演进记录
+     - v0.0.1~v0.0.4 已删，仅留 v0.0.5；v0.0.6 打包后随之替换 v0.0.5
+- **后果**：
+  - 优点：后端结构对称，local/cloud 分类清晰，下一阶段接对话需求时所有 client 统一填方法体即可
+  - 优点：UI 的本地/云端分组现在有对应的后端类支撑，不是空壳
+  - 优点：安装包目录不冗余占空间，用户只拿最新版
+  - 取舍：所有 client chat/complete 仍 NotImplementedError（与 v0.0.4/v0.0.5 一致，未退步也未进步功能层面）
+  - 取舍：v0.0.1~v0.0.4 的 .exe 二进制永久丢失（演进历史靠 README 版本表 + git log 即可）
+- **影响**：
+  - 文件：新增 `q_agent/llm/cloud/{__init__,openai,anthropic,gemini}.py`、修改 `q_agent/llm/{__init__,ollama}.py`、新增 `tests/test_llm_clients.py`（15 例）
+  - 规则：CLAUDE.md §17 改为只保留最新；安装包/README.md 改写规则并加版本历史表
+  - 测试：74 个测试，覆盖率 88.02%
+  - .exe：v0.0.6 已打包并启动验证通过
+- **取代**：ADR-010 的"历史版本长期保留不删"部分（其余部分如子目录按版本号命名、PyInstaller --onefile、.exe 不入 git 等仍有效）

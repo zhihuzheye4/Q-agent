@@ -12,3 +12,4 @@
 {"action":"add","time":"2026-06-19","name":"UI 输入框动态高度","tech":"QTextEdit + documentSizeChanged 信号 + [min,max] 钳制 setFixedHeight","idea":"输入框高度随内容增长，触顶 200px 显示滚动条，清空回 44px"}
 {"action":"add","time":"2026-06-20","name":"本地 Ollama 模型检测","tech":"urllib 标准库 + QThread 异步 + ModelRefreshWorker","idea":"UI 右上角下拉框 + 刷新按钮，启动检测本地 Ollama /api/tags，失败显示未发现占位项"}
 {"action":"add","time":"2026-06-20","name":"下拉框本地/云端分组 + AI 气泡模型标签","tech":"QStandardItemModel disabled 分组头 + ChatPage set_model_provider 回调 + QLabel#ModelLabel","idea":"下拉框分本地/云端两组（云端预置占位），AI 气泡上方显示当前选中模型名小标签"}
+{"action":"add","time":"2026-06-20","name":"llm 层对称骨架 + 安装包只留最新","tech":"OllamaClient(LLMClient) 子类 + q_agent/llm/cloud/{openai,anthropic,gemini}.py stubs + 安装包规则改只留最新版","idea":"后端结构对称 local/cloud 分类清晰，所有 client 构造 OK chat/complete 抛 NotImplementedError 待填；安装包每次打新版删上一版，仅留当前最新"}
