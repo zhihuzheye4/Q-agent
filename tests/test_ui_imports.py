@@ -105,8 +105,10 @@ def test_main_window_constructs(qapp) -> None:  # noqa: ANN001
 
     w = MainWindow()
     assert w.windowTitle() == "Q-agent"
-    assert w.sidebar.count() == 4, "侧边栏应有 4 个 tab"
+    assert w.sidebar._list.count() == 4, "侧边栏应有 4 个 tab"
     assert w.stack.count() == 4, "主内容区应有 4 个页面"
+    # v0.0.12：sidebar 含 HardwareMonitor 子组件
+    assert w.sidebar.hardware_monitor is not None
 
 
 def test_sidebar_tab_switches_stack(qapp) -> None:  # noqa: ANN001
@@ -115,7 +117,7 @@ def test_sidebar_tab_switches_stack(qapp) -> None:  # noqa: ANN001
 
     w = MainWindow()
     for i in range(4):
-        w.sidebar.setCurrentRow(i)
+        w.sidebar._list.setCurrentRow(i)
         assert w.stack.currentIndex() == i, f"侧边栏 {i} 未正确切换 stack"
 
 

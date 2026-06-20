@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QWidget
 
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -117,6 +118,13 @@ class MainWindow(QMainWindow):
         # 检测完成后会触发 model_group_changed，但启动时下拉框初始占位 disabled，
         # 主动调一次让 chat_page 初始禁用发送按钮（与 toolbar 初始状态对齐）
         QTimer.singleShot(150, self._sync_send_enabled)
+        # 启动硬件监控 worker（延迟 200ms 让 UI 先绘制，避免首帧空白）
+        QTimer.singleShot(200, self.sidebar.hardware_monitor.start)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """窗口关闭时优雅停止 hardware_monitor worker，避免线程悬挂。"""
+        self.sidebar.hardware_monitor.stop()
+        super().closeEvent(event)
 
     def _sync_send_enabled(self) -> None:
         """启动后主动同步一次发送按钮状态（与 toolbar 当前选中项对齐）。"""
