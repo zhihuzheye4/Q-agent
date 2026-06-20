@@ -103,6 +103,12 @@ QLabel#ModelLabel {{
     font-size: 11px;
     padding: 0 4px;
 }}
+QLabel#MessageSystem {{
+    color: {COLOR_MUTED};
+    font-style: italic;
+    font-size: 12px;
+    padding: 6px 12px;
+}}
 QLabel#MessagePlaceholder {{
     color: {COLOR_MUTED};
     padding: 24px;

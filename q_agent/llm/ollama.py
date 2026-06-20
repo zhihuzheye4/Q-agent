@@ -111,6 +111,43 @@ def list_models(
     return entries
 
 
+def release_model(
+    model: str,
+    host: str = "http://localhost:11434",
+    timeout: float = 30.0,
+) -> None:
+    """释放指定模型的内存（卸载出 Ollama 进程 RAM）。
+
+    通过 POST /api/generate body={"model":..., "keep_alive": 0} 触发 Ollama
+    在当前生成完成后立即卸载模型权重。如果模型没在内存，调用是 no-op。
+
+    Args:
+        model: 模型名（如 "qwen2.5:7b"）
+        host: Ollama 服务地址
+        timeout: 网络超时秒数，默认 30s（生成可能慢，比 list_models 的 2s 长）
+
+    Raises:
+        OllamaError: 连接拒绝 / 超时 / HTTP 错误 / JSON 解析失败
+    """
+    url = host.rstrip("/") + "/api/generate"
+    payload = json.dumps({"model": model, "keep_alive": 0}).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            resp.read()  # 消费响应体，确保连接关闭
+    except urllib.error.HTTPError as e:
+        raise OllamaError(f"Ollama 返回 HTTP {e.code}：{e.reason}") from e
+    except urllib.error.URLError as e:
+        reason = e.reason
+        if isinstance(reason, socket.timeout) or "timed out" in str(reason).lower():
+            msg = f"连接 Ollama 超时（{timeout}s）：请确认服务运行于 {host}"
+            raise OllamaError(msg) from e
+        raise OllamaError(f"无法连接 Ollama（{host}）：{reason}。请确认服务已启动") from e
+    except TimeoutError as e:
+        msg = f"连接 Ollama 超时（{timeout}s）：请确认服务运行于 {host}"
+        raise OllamaError(msg) from e
+
+
 class OllamaClient(LLMClient):
     """Ollama 本地 LLM 完整客户端骨架。
 

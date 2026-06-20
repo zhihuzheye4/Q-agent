@@ -1,8 +1,8 @@
-"""顶部工具栏：左侧图标按钮（新建对话/清空/关于）+ 右侧模型下拉框与刷新。
+"""顶部工具栏：左侧图标按钮（新建对话/清空/关于）+ 右侧模型下拉框与刷新与释放。
 
 行为：
     - 左侧 3 个 QToolButton（活 UI 空壳行为，仅状态栏回显）
-    - 右侧"模型:"标签 + QComboBox（模型列表）+ 刷新 QToolButton
+    - 右侧"模型:"标签 + QComboBox（模型列表）+ 刷新 QToolButton + 释放 QToolButton
     - 启动时由 MainWindow 触发 refresh_models()，异步检测 Ollama
     - 下拉框分组（v0.0.7 起三组）：
         本地（Ollama）       — Ollama 上真正装在本地的模型（is_remote=False）
@@ -12,12 +12,16 @@
     - 检测成功：填本地组 +（如有）Ollama Cloud 组 + 云端预置组
     - 检测成功本地空但 cloud 转发有：本地组占位"未发现本地模型"
     - 检测失败：下拉显示"未发现本地 LLM"占位项（不加任何后续组）
-    - 用户选模型：emit model_selected(str)
+    - 用户选模型：emit model_selected(str) + model_group_changed(group)
     - 用户点刷新：再触发一次 refresh_models()
+    - 用户点释放：调 release_model POST /api/generate keep_alive=0 卸载模型出 RAM，
+      仅在选中 local/ollama-cloud 模型时启用，cloud 预置未接 API 不需要释放
 
 异步检测：
     - ModelRefreshWorker(QThread) 后台跑 list_models，避免阻塞 UI 主线程
+    - ModelReleaseWorker(QThread) 后台跑 release_model，避免阻塞 UI 主线程
     - 信号 models_found(list[ModelEntry]) / refresh_failed(str) 回主线程更新 UI
+    - 信号 released(str) / release_failed(str) 回主线程更新状态栏
 """
 
 from __future__ import annotations
@@ -34,7 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from q_agent.llm.ollama import ModelEntry, OllamaError, list_models
+from q_agent.llm.ollama import ModelEntry, OllamaError, list_models, release_model
 from q_agent.ui.icons import load_icon
 
 # 下拉框占位文案
@@ -77,11 +81,40 @@ class ModelRefreshWorker(QThread):
         self.models_found.emit(models)
 
 
+class ModelReleaseWorker(QThread):
+    """后台跑 release_model，避免网络请求阻塞 UI 主线程。
+
+    完成后 emit released(model_name)；失败 emit release_failed(str)。
+    """
+
+    released = Signal(str)
+    release_failed = Signal(str)
+
+    def __init__(
+        self,
+        model: str,
+        host: str = "http://localhost:11434",
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._model = model
+        self._host = host
+
+    def run(self) -> None:
+        try:
+            release_model(self._model, self._host)
+        except OllamaError as e:
+            self.release_failed.emit(str(e))
+            return
+        self.released.emit(self._model)
+
+
 class Toolbar(QToolBar):
     """顶部工具栏。"""
 
     model_selected = Signal(str)
     model_group_changed = Signal(object)  # str | None，"local"/"ollama-cloud"/"cloud"/None
+    model_released = Signal(str)  # 释放成功的模型名（v0.0.9 新增，chat_page 可监听清空 pending）
 
     def __init__(
         self,
@@ -91,6 +124,10 @@ class Toolbar(QToolBar):
         super().__init__("main", parent)
         self._status_callback = status_callback or (lambda _: None)
         self._worker: ModelRefreshWorker | None = None
+        self._release_worker: ModelReleaseWorker | None = None
+        # 抑制首次自动选择触发的 model_selected 信号（避免 _on_models_found 自动选首个模型时
+        # chat_page 误清空初始问候消息；仅 group_changed 仍要 emit 以同步发送按钮状态）
+        self._suppress_select_emit = False
         self.setMovable(False)
         self._build_actions()
         self._build_model_group()
@@ -145,6 +182,13 @@ class Toolbar(QToolBar):
         self.refresh_btn.setStatusTip("刷新模型列表")
         self.refresh_btn.triggered.connect(self.refresh_models)
 
+        # 释放按钮：仅 local/ollama-cloud 启用，调 /api/generate keep_alive=0 卸载模型出 RAM
+        self.release_btn = self.addAction(load_icon("release"), "释放")
+        self.release_btn.setToolTip("释放当前模型内存（卸载出 Ollama RAM，下次需要时重新加载）")
+        self.release_btn.setStatusTip("释放当前模型内存")
+        self.release_btn.setEnabled(False)  # 启动时无选中模型，禁用
+        self.release_btn.triggered.connect(self._on_release_clicked)
+
         self.addWidget(right_container)
 
     def refresh_models(self) -> None:
@@ -196,9 +240,12 @@ class Toolbar(QToolBar):
         # 启用下拉（即使本地空，后续组也可选）
         self.model_combo.setEnabled(True)
         # 默认选中第一个可选项（本地首个 或 Ollama Cloud 首个 或 云端预置首个）
+        # 抑制首次自动选择触发的 model_selected（避免 chat_page 清空初始问候）
         first_selectable = self._first_selectable_index()
         if first_selectable >= 0:
+            self._suppress_select_emit = True
             self.model_combo.setCurrentIndex(first_selectable)
+            self._suppress_select_emit = False  # 防御：若未触发 currentIndexChanged 则手动复位
 
         # 状态栏汇总
         parts: list[str] = [f"{len(local_entries)} 个本地模型"]
@@ -261,10 +308,63 @@ class Toolbar(QToolBar):
         text = item.text()
         if text in (PLACEHOLDER_DETECTING, PLACEHOLDER_EMPTY, PLACEHOLDER_NO_LOCAL_MODEL):
             return
-        self.model_selected.emit(text)
-        # 同时 emit 分组（"local"/"ollama-cloud"/"cloud"），供 chat_page 决定是否禁用发送按钮
+        # 取分组 + 同步 release_btn 状态（每次都做，无论是否抑制）
         group = item.data(ITEM_ROLE)
         self.model_group_changed.emit(group)
+        self.release_btn.setEnabled(group in ("local", "ollama-cloud"))
+        # 抑制首次自动选择触发的 model_selected（避免 chat_page 清空初始问候）
+        if self._suppress_select_emit:
+            self._suppress_select_emit = False
+            return
+        self.model_selected.emit(text)
+
+    def _on_release_clicked(self) -> None:
+        """用户点释放按钮 → 弹确认 → 启动 ModelReleaseWorker 后台卸载。"""
+        from PySide6.QtWidgets import QMessageBox
+
+        model = self.current_model()
+        if not model:
+            return
+        # 防御性：cloud 分组未接 API 无内存可释放
+        if self.current_model_group() not in ("local", "ollama-cloud"):
+            return
+        # 弹确认对话框
+        reply = QMessageBox.question(
+            self,
+            "释放模型内存",
+            f"将卸载模型 {model} 出 Ollama 内存（RAM），"
+            "下次需要时在下拉框重新选择即可加载。\n\n确认释放？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        # 重复触发时取消旧 worker
+        if self._release_worker is not None and self._release_worker.isRunning():
+            self._release_worker.quit()
+            self._release_worker.wait(1000)
+        self.release_btn.setEnabled(False)
+        self._status_callback(f"正在释放 {model} 内存...")
+        self._release_worker = ModelReleaseWorker(model, parent=self)
+        self._release_worker.released.connect(self._on_released)
+        self._release_worker.release_failed.connect(self._on_release_failed)
+        self._release_worker.start()
+
+    def _on_released(self, model: str) -> None:
+        """释放成功 → 状态栏提示 + emit model_released（chat_page 可监听清 pending）。"""
+        self._status_callback(f"已释放 {model} 内存（下次需要时在下拉框重新选择）")
+        self.model_released.emit(model)
+        # 释放后下拉框不再选中此模型（用户需重新选择）；保留 combo 选中态以维持 group 信号
+        # 但发送按钮需要重新评估——当前 group 仍是 local/ollama-cloud，输入框非空仍可发送
+        # 实际下次发送会重新触发 Ollama 加载模型，所以无需禁用发送
+        group = self.current_model_group()
+        self.release_btn.setEnabled(group in ("local", "ollama-cloud"))
+
+    def _on_release_failed(self, msg: str) -> None:
+        """释放失败 → 状态栏错误提示。"""
+        self._status_callback(f"释放失败：{msg}")
+        group = self.current_model_group()
+        self.release_btn.setEnabled(group in ("local", "ollama-cloud"))
 
     def current_model(self) -> str | None:
         """当前选中模型名，未选中 / 占位 / header 时返回 None。"""

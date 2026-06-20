@@ -22,7 +22,13 @@ from unittest.mock import patch
 
 import pytest
 
-from q_agent.llm.ollama import ModelEntry, OllamaClient, OllamaError, list_models
+from q_agent.llm.ollama import (
+    ModelEntry,
+    OllamaClient,
+    OllamaError,
+    list_models,
+    release_model,
+)
 
 
 class _FakeResponse:
@@ -299,3 +305,59 @@ def test_chat_full_via_stream() -> None:
         client = OllamaClient(model="m")
         result = client.chat([{"role": "user", "content": "hi"}])
     assert result == "Hello, world!"
+
+
+def test_release_model_happy() -> None:
+    """release_model POST /api/generate keep_alive=0 正常调用不抛错。"""
+    captured: list[bytes] = []
+
+    def fake_urlopen(req: object, **kw: object) -> _FakeResponse:
+        captured.append(req.data if hasattr(req, "data") else b"")  # type: ignore[arg-type]
+        return _FakeResponse(b'{"done":true}')
+
+    with patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=fake_urlopen):
+        release_model("qwen2.5:7b")
+    # 验证 payload 含 keep_alive=0
+    assert len(captured) == 1
+    import json as _json
+
+    payload = _json.loads(captured[0].decode("utf-8"))
+    assert payload == {"model": "qwen2.5:7b", "keep_alive": 0}
+
+
+def test_release_model_http_error() -> None:
+    """HTTPError → OllamaError 含状态码。"""
+    err = urllib.error.HTTPError(
+        url="http://localhost:11434/api/generate",
+        code=500,
+        msg="Internal Server Error",
+        hdrs=None,  # type: ignore[arg-type]
+        fp=None,
+    )
+    with (
+        patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=err),
+        pytest.raises(OllamaError) as exc,
+    ):
+        release_model("m")
+    assert "HTTP 500" in str(exc.value)
+
+
+def test_release_model_connection_refused() -> None:
+    """URLError（连接拒绝）→ OllamaError 含友好提示。"""
+    err = urllib.error.URLError(ConnectionRefusedError("Connection refused"))
+    with (
+        patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=err),
+        pytest.raises(OllamaError) as exc,
+    ):
+        release_model("m")
+    assert "无法连接" in str(exc.value) or "Ollama" in str(exc.value)
+
+
+def test_release_model_timeout() -> None:
+    """TimeoutError → OllamaError 含超时提示。"""
+    with (
+        patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=TimeoutError("timed out")),
+        pytest.raises(OllamaError) as exc,
+    ):
+        release_model("m", timeout=1.0)
+    assert "超时" in str(exc.value)

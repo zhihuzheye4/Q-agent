@@ -28,4 +28,5 @@ from q_agent.llm.ollama import (  # noqa: F401
     OllamaClient,
     OllamaError,
     list_models,
+    release_model,
 )

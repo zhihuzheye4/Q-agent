@@ -61,6 +61,11 @@
       "name": "refresh-active",
       "file": "refresh-active.svg",
       "level": "UI"
+    },
+    {
+      "name": "release-active",
+      "file": "release-active.svg",
+      "level": "UI"
     }
   ]
 }

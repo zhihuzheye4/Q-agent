@@ -47,6 +47,19 @@ NO_MODEL_TEXT = "(未选模型)"
 SENDABLE_GROUPS = ("local", "ollama-cloud")
 # 默认 Ollama host（v0.0.8 hardcoded，下版本接 QSettings 后改）
 DEFAULT_HOST = "http://localhost:11434"
+# 模型名标签调色板（按模型名 hash 取一个，8 个高对比色，同一模型每次显示同色）
+MODEL_NAME_PALETTE = (
+    "#22C55E",  # 绿
+    "#3B82F6",  # 蓝
+    "#A855F7",  # 紫
+    "#EC4899",  # 粉
+    "#F97316",  # 橙
+    "#14B8A6",  # 青
+    "#EAB308",  # 黄
+    "#6366F1",  # 靛
+)
+# 切换模型时系统提示气泡文案
+SYSTEM_MSG_SWITCHED = "模型已切换为 {model}，上下文已清空"
 
 
 class ChatInput(QTextEdit):
@@ -285,7 +298,7 @@ class ChatPage(QWidget):
     ) -> QLabel:
         """追加消息气泡。role: 'user'（贴右）/ 'ai'（贴左）。
 
-        AI 消息时 model_name 非空 → 气泡上方加模型名小标签。
+        AI 消息时 model_name 非空 → 气泡上方加模型名小标签（颜色按 hash 取调色板）。
         布局：
             AI 行：[stretch][垂直列：模型名label + 气泡label]  → 贴左
             用户行：[垂直列：气泡label][stretch]  → 贴右
@@ -311,11 +324,13 @@ class ChatPage(QWidget):
         col_layout.setContentsMargins(0, 0, 0, 0)
         col_layout.setSpacing(4)
 
-        # AI 消息且提供模型名 → 上方加模型名小标签
+        # AI 消息且提供模型名 → 上方加模型名小标签（颜色按模型名 hash 取调色板）
         if role == "ai" and model_name:
             model_label = QLabel(model_name, bubble_col)
             model_label.setObjectName("ModelLabel")
             model_label.setMaximumWidth(max_w)
+            color = self._model_color(model_name)
+            model_label.setStyleSheet(f"color: {color}; font-size: 11px; padding: 0 4px;")
             col_layout.addWidget(model_label)
             self._bubble_labels.append(model_label)
 
@@ -339,6 +354,91 @@ class ChatPage(QWidget):
             self._messages.append((role, text, model_name))
         self._scroll_to_bottom()
         return bubble_label
+
+    def _add_system_message(self, text: str) -> None:
+        """追加居中灰色斜体系统提示气泡（区别于 user/ai 对话气泡）。
+
+        不入 _messages 历史（不是对话内容，仅做 UI 提示）。
+        用于切换模型时显示"模型已切换为 XXX，上下文已清空"。
+        """
+        max_w = self._bubble_max_width()
+        label = QLabel(text, self.messages_container)
+        label.setObjectName("MessageSystem")
+        label.setMaximumWidth(max_w)
+        self._bubble_labels.append(label)
+        row = QWidget(self.messages_container)
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(0)
+        row_layout.addStretch(1)
+        row_layout.addWidget(label)
+        row_layout.addStretch(1)
+        self.messages_layout.insertWidget(self.messages_layout.count() - 1, row)
+        self._scroll_to_bottom()
+
+    def _clear_messages(self) -> None:
+        """清空消息流（移除所有 row widget，保留末尾 stretch）+ 清空 _messages 历史。
+
+        用于切换模型时清空当前对话上下文。也清空 pending AI 气泡状态。
+        """
+        # stretch 在末尾，count > 1 时仍有 row widget 待移除
+        while self.messages_layout.count() > 1:
+            item = self.messages_layout.takeAt(0)
+            if item is not None:
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+        self._messages.clear()
+        self._bubble_labels.clear()
+        self._pending_bubble = None
+        self._pending_text = ""
+        self._pending_model_name = None
+
+    def _on_model_changed(self, model_name: str) -> None:
+        """toolbar.model_selected 信号触发：清空对话 + 插入系统提示气泡。
+
+        切换模型后历史消息对当前模型无意义（context 不同），统一清空 +
+        插入"模型已切换为 XXX，上下文已清空"系统提示。
+        """
+        self._clear_messages()
+        self._add_system_message(SYSTEM_MSG_SWITCHED.format(model=model_name))
+
+    def _model_color(self, name: str) -> str:
+        """根据模型名稳定 hash（zlib.crc32）取调色板中的一个颜色。
+
+        同一模型每次启动显示同色（zlib 跨进程稳定，不同于内置 hash 随机化）。
+        占位文本 NO_MODEL_TEXT 返回默认灰色。
+        """
+        import zlib
+
+        if name == NO_MODEL_TEXT:
+            return "#94A3B8"
+        return MODEL_NAME_PALETTE[zlib.crc32(name.encode("utf-8")) % len(MODEL_NAME_PALETTE)]
+
+    def _find_first_label_by_object_name(self, name: str) -> QLabel | None:
+        """遍历消息流查找首个指定 objectName 的 QLabel（测试用）。"""
+        for i in range(self.messages_layout.count()):
+            item = self.messages_layout.itemAt(i)
+            if item is None:
+                continue
+            widget = item.widget()
+            if widget is None:
+                continue
+            # row widget 内嵌套 layout，需递归查找 QLabel
+            found = self._find_label_recursive(widget, name)
+            if found is not None:
+                return found
+        return None
+
+    @staticmethod
+    def _find_label_recursive(widget: QWidget, name: str) -> QLabel | None:
+        """递归查找 widget 子树中首个 objectName=name 的 QLabel。"""
+        if isinstance(widget, QLabel) and widget.objectName() == name:
+            return widget
+        for child in widget.findChildren(QLabel):
+            if child.objectName() == name:
+                return child
+        return None
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: ANN001
         """窗口大小变化时，重设所有气泡 + 模型名 label 的最大宽度。"""

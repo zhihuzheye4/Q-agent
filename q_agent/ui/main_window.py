@@ -101,6 +101,9 @@ class MainWindow(QMainWindow):
         # toolbar 模型分组变化 → chat_page 更新发送按钮可用状态
         self.toolbar.model_group_changed.connect(self.chat_page.update_send_enabled)
 
+        # toolbar 用户切换模型 → chat_page 清空当前对话 + 系统提示（v0.0.9 新增）
+        self.toolbar.model_selected.connect(self.chat_page._on_model_changed)
+
         # 菜单栏
         self.menu = MenuBar(self)
 
