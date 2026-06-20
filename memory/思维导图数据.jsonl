@@ -10,3 +10,4 @@
 {"action":"add","time":"2026-06-19","name":"UI 界面空壳","tech":"PySide6 + 方案 D QIcon 直接受 SVG","idea":"活的 UI 空壳 4 tab + 输入框/发送 + 设置面板 + 工具栏 + 菜单栏，无实际功能"}
 {"action":"add","time":"2026-06-19","name":"v0.0.1 .exe","tech":"PyInstaller --onefile --windowed --add-data","idea":"47MB 零外部依赖，分发零依赖硬规则首里程碑"}
 {"action":"add","time":"2026-06-19","name":"UI 输入框动态高度","tech":"QTextEdit + documentSizeChanged 信号 + [min,max] 钳制 setFixedHeight","idea":"输入框高度随内容增长，触顶 200px 显示滚动条，清空回 44px"}
+{"action":"add","time":"2026-06-20","name":"本地 Ollama 模型检测","tech":"urllib 标准库 + QThread 异步 + ModelRefreshWorker","idea":"UI 右上角下拉框 + 刷新按钮，启动检测本地 Ollama /api/tags，失败显示未发现占位项"}

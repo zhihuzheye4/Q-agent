@@ -254,3 +254,72 @@ def _adjust_height(self) -> None:
 - 文件：`q_agent/ui/pages/chat_page.py`
 - 测试：手动验证（offscreen mode + processEvents），无新增单测（UI 渲染测试需 QApplication 实例，留手动测试）
 - .exe：v0.0.3 已包含此改进
+
+## ADR-018：本地 LLM 检测首版选 Ollama 后端 + urllib 标准库 + QThread 异步检测
+
+- **时间**：2026-06-20
+- **状态**：采纳
+- **取代**：无（首次实现本地 LLM 检测能力）
+
+### 背景
+
+第一个填充的实际功能：UI 右上角模型下拉框 + 启动时检测本地 LLM。
+讨论选项：Ollama / Ollama+LM Studio / Ollama+LM Studio+llama.cpp。
+首版范围确认只支持 Ollama（事实标准，HTTP API 简单）。
+
+### 决策
+
+1. **后端**：仅 Ollama，HTTP GET `http://localhost:11434/api/tags`，解析 `{"models":[{"name":"..."}]}`
+2. **HTTP 客户端**：标准库 `urllib.request`，**不引入 requests**——坚守 CLAUDE.md 第二十节"分发零外部依赖硬规则"，urllib 在 PyInstaller --onefile 下零额外打包成本
+3. **超时**：默认 2 秒（UI 友好，避免长时间卡死），可参数化
+4. **异步检测**：`ModelRefreshWorker(QThread)` 后台跑 `list_models`，避免网络请求阻塞 UI 主线程；信号 `models_found(list)` / `refresh_failed(str)` 回主线程
+5. **失败 UX**：下拉框显示"未发现本地 LLM"占位项 + 旁边刷新按钮（手动重试）+ 状态栏同步提示原因
+6. **检测时机**：MainWindow 启动后 `QTimer.singleShot(100)` 自动触发一次（让 UI 先绘制完），后续手动点刷新
+7. **异常处理**：所有失败场景（连接拒绝/超时/HTTP 错误/JSON 解析失败/字段非列表）统一抛 `OllamaError`，message 已含面向用户的友好描述
+
+### 关键代码
+
+```python
+# 异常捕获顺序：HTTPError 必须先于 URLError（HTTPError 是 URLError 子类）
+try:
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
+        body = resp.read().decode("utf-8")
+except urllib.error.HTTPError as e:
+    raise OllamaError(f"Ollama 返回 HTTP {e.code}：{e.reason}") from e
+except urllib.error.URLError as e:
+    reason = e.reason
+    if isinstance(reason, socket.timeout) or "timed out" in str(reason).lower():
+        raise OllamaError(f"连接 Ollama 超时（{timeout}s）：...") from e
+    raise OllamaError(f"无法连接 Ollama（{host}）：{reason}。...") from e
+except TimeoutError as e:
+    raise OllamaError(f"连接 Ollama 超时（{timeout}s）：...") from e
+```
+
+QThread worker：
+
+```python
+class ModelRefreshWorker(QThread):
+    models_found = Signal(list)
+    refresh_failed = Signal(str)
+    def run(self) -> None:
+        try:
+            models = list_models(self._host)
+        except OllamaError as e:
+            self.refresh_failed.emit(str(e))
+            return
+        self.models_found.emit(models)
+```
+
+### 后果
+
+- 优点：零新运行时依赖 / 异步不阻塞 UI / 失败 UX 友好 / 单测覆盖完整
+- 取舍：仅 Ollama，LM Studio / llama.cpp 用户首版不可用——留待 ADR-019+ 扩展
+- 取舍：未实现 `chat()`，下拉框选中模型后尚无后续动作——下一阶段
+- 取舍：未持久化用户选择（QSettings 落盘）——下一候选需求
+
+### 影响
+
+- 文件：`q_agent/llm/ollama.py`（新增）、`q_agent/ui/toolbar.py`（改造）、`q_agent/ui/main_window.py`（启动触发）
+- 图标：新增 `refresh-active.svg`（Lucide refresh-cw 风格）
+- 测试：`tests/test_llm_ollama.py` 11 例 + `tests/test_ui_toolbar.py` 11 例
+- .exe：v0.0.4 已包含

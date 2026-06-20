@@ -38,3 +38,4 @@ pyinstaller \
 | v0.0.1 | 2026-06-19 | （本次 commit） | UI 界面空壳版本：4 tab 切换 + 输入框/发送按钮 + 设置面板 + 工具栏 + 菜单栏。活的 UI 无实际功能，对接本地 LLM 留待下一里程碑。47MB .exe 零外部依赖。 |
 | v0.0.2 | 2026-06-19 | （本次 commit） | UI 改进：(1) tooltip 透明背景修复白色方块遮盖文字 (2) 气泡宽度比例 0.7→0.92 长发言友好 (3) 设置齿轮换用 Feather settings 经典 8 齿 path（stroke-width=2 渲染完整）(4) 输入框 QLineEdit→QTextEdit 多行支持长发言，Enter 发送 Shift+Enter 换行，高度 44-200px 自适应。45MB .exe 零外部依赖。 |
 | v0.0.3 | 2026-06-19 | （本次 commit） | UI 改进：输入框高度随内容动态变化——监听 documentLayout().documentSizeChanged 信号，根据文档实际高度在 [44, 200] 之间钳制 setFixedHeight，超出 200px 显示滚动条，清空回 44。45MB .exe 零外部依赖。 |
+| v0.0.4 | 2026-06-20 | 54abe5f | 第一个填充实际功能：UI 右上角加模型下拉框 + 刷新按钮，启动时异步检测本地 Ollama 模型（GET /api/tags）。用 urllib 标准库零新运行时依赖；ModelRefreshWorker(QThread) 后台跑避免阻塞 UI；检测失败显示"未发现本地 LLM"占位项 + 状态栏提示。47MB .exe 零外部依赖。 |
