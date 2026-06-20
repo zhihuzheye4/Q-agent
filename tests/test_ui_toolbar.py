@@ -425,3 +425,30 @@ def test_current_model_group_returns_none_for_header(qapp) -> None:  # noqa: ANN
     tb._on_models_found([_entry("qwen2.5:7b")])
     tb.model_combo.setCurrentIndex(0)  # 本地 header
     assert tb.current_model_group() is None
+
+
+def test_new_chat_requested_signal_emits(qapp) -> None:  # noqa: ANN001
+    """v0.0.16：新建对话按钮 triggered 应 emit new_chat_requested 信号。"""
+    from q_agent.ui.toolbar import Toolbar
+
+    tb = Toolbar()
+    received: list[bool] = []
+    tb.new_chat_requested.connect(lambda: received.append(True))
+    # 找到"新建对话"action 并触发
+    actions = tb.actions()
+    new_chat_action = next(a for a in actions if a.toolTip().startswith("新建对话"))
+    new_chat_action.trigger()
+    assert received == [True], "新建对话按钮应 emit new_chat_requested 信号"
+
+
+def test_clear_requested_signal_emits(qapp) -> None:  # noqa: ANN001
+    """v0.0.16：清空按钮 triggered 应 emit clear_requested 信号。"""
+    from q_agent.ui.toolbar import Toolbar
+
+    tb = Toolbar()
+    received: list[bool] = []
+    tb.clear_requested.connect(lambda: received.append(True))
+    actions = tb.actions()
+    clear_action = next(a for a in actions if a.toolTip().startswith("清空当前"))
+    clear_action.trigger()
+    assert received == [True], "清空按钮应 emit clear_requested 信号"

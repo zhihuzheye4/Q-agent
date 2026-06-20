@@ -115,6 +115,9 @@ class Toolbar(QToolBar):
     model_selected = Signal(str)
     model_group_changed = Signal(object)  # str | None，"local"/"ollama-cloud"/"cloud"/None
     model_released = Signal(str)  # 释放成功的模型名（v0.0.9 新增，chat_page 可监听清空 pending）
+    # v0.0.16 新增：新建对话 / 清空 按钮的请求信号（MainWindow 连接到 chat_page._clear_messages）
+    new_chat_requested = Signal()
+    clear_requested = Signal()
 
     def __init__(
         self,
@@ -136,16 +139,14 @@ class Toolbar(QToolBar):
         new_chat = self.addAction(load_icon("new-chat"), "新建对话")
         new_chat.setToolTip("新建对话（清空当前消息流，开始新对话）")
         new_chat.setStatusTip("新建对话")
-        new_chat.triggered.connect(
-            lambda: self._status_callback("已点击：新建对话（活 UI 空壳，无实际行为）")
-        )
+        # v0.0.16：从 status_callback 占位改为 emit new_chat_requested 信号
+        new_chat.triggered.connect(self.new_chat_requested.emit)
 
         clear = self.addAction(load_icon("clear"), "清空")
         clear.setToolTip("清空当前对话消息流")
         clear.setStatusTip("清空对话")
-        clear.triggered.connect(
-            lambda: self._status_callback("已点击：清空（活 UI 空壳，无实际行为）")
-        )
+        # v0.0.16：从 status_callback 占位改为 emit clear_requested 信号
+        clear.triggered.connect(self.clear_requested.emit)
 
         about = self.addAction(load_icon("about"), "关于")
         about.setToolTip("关于 Q-agent（版本信息与功能说明）")

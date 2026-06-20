@@ -127,6 +127,10 @@ class MainWindow(QMainWindow):
         # toolbar 用户切换模型 → chat_page 清空当前对话 + 系统提示（v0.0.9 新增）
         self.toolbar.model_selected.connect(self.chat_page._on_model_changed)
 
+        # toolbar 新建对话 / 清空按钮 → chat_page._clear_messages（v0.0.16 接通实际行为）
+        self.toolbar.new_chat_requested.connect(self.chat_page._clear_messages)
+        self.toolbar.clear_requested.connect(self.chat_page._clear_messages)
+
         # 菜单栏（注入 monitor_callback / close_callback，"监控"菜单 triggered）
         self.menu = MenuBar(
             self,
