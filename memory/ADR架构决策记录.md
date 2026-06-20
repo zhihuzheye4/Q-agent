@@ -434,3 +434,30 @@ self.chat_page.set_model_provider(self.toolbar.current_model)
   - 测试：81 个测试通过，覆盖率 88.15%
   - .exe：v0.0.7 已打包并启动验证通过
 - **取代**：无（修正 ADR-019 实现细节，不动 ADR-019 决策本身）
+
+## ADR-022：通过 Ollama 唤醒模型 + 流式批量刷新（500字/500ms 混合阈值）
+
+- **时间**：2026-06-20
+- **状态**：采纳
+- **背景**：v0.0.7 完成模型下拉框三组分类后，下一步是把已选模型真正用起来——用户发送对话，实际调 Ollama /api/chat 拿回复显示在 AI 气泡。原 _on_send_clicked 是 echo 占位。用户明确反馈 UX 决策："攒一段信息，比如500字，然后流失返回，这样可以提升出现速度，如果真就http实时监视的话，有些计算比较慢的，那真就是一秒钟一个字，用户会崩溃的"——拒绝纯 token 流式（一秒一字让人崩溃），要批量刷新。
+- **决策**：
+  1. **后端填 chat_stream**：`OllamaClient.chat_stream(messages, timeout=120.0) -> Iterator[str]` 流式调 POST /api/chat stream=true，NDJSON 逐行 json.loads，yield `chunk.message.content`，遇 `done=true` 返回。错误处理复用 list_models 的 urllib 模式（HTTPError 在 URLError 之前捕获，socket.timeout 单独处理）
+  2. **chat() 填为 "".join(self.chat_stream(messages))**：同步便捷方法供编排层非流式调用
+  3. **ChatWorker QThread 后台跑流式**：信号 chunk_received(str) / chat_failed(str) / chat_done()，常量 CHUNK_SIZE=500 + FLUSH_MS=500.0，混合刷新策略——buffer 攒满 500字 OR 距上次 flush 满 500ms 任一触发即 emit，循环结束 emit 剩余 buffer + chat_done。stop() 接口留作未来取消按钮（v0.0.8 未接 UI）
+  4. **chat_page 接入真实调用**：_on_send_clicked 重写——取 group 防御性检查（SENDABLE_GROUPS=("local", "ollama-cloud")）→ add user → 构造 messages_for_llm → 创建 pending AI 气泡（append_to_history=False 不污染历史）→ loading 状态（禁用输入+按钮变"生成中"）→ 启动 ChatWorker
+  5. **三 slot**：_on_chunk（追加到 pending 气泡 + scroll）/ _on_chat_failed（pending 气泡 objectName 改 MessageError 红色样式 + reset）/ _on_chat_done（完整回复入 _messages + 清 pending + reset）
+  6. **toolbar 暴露 group**：新增 model_group_changed=Signal(object) 信号 + current_model_group() 方法，_on_combo_changed 同时 emit text 和 group
+  7. **云端预置禁用发送**：update_send_enabled("cloud") → send_btn.setEnabled(False) + tooltip "云端 API 未接，请选本地或 Ollama Cloud 模型"；SENDABLE_GROUPS 判定 local/ollama-cloud 启用 iff 输入框非空；None 禁用 + tooltip "未选模型"
+  8. **theme 加 MessageError 红色样式**：QLabel#MessageError 红字红底红边，区别于正常 AI 气泡
+- **后果**：
+  - 优点：用户发送消息真实调 Ollama，AI 气泡每 500字/500ms 刷新一段，避免一秒一字崩溃
+  - 优点：云端预置未接 API 时禁用发送按钮 + tooltip，用户不会误触发 NotImplementedError
+  - 优点：错误气泡红色视觉区分，失败时用户一眼能看出
+  - 取舍：历史消息首版全传（token 消耗大但简单），上下文裁剪留 v0.0.9+
+  - 取舍：取消按钮 UI 未接（ChatWorker.stop() 接口已留，v0.0.9+ 接）
+  - 取舍：host 仍 hardcoded "http://localhost:11434"，QSettings 持久化留 v0.0.9+
+- **影响**：
+  - 文件：`q_agent/llm/ollama.py`（chat_stream + chat 填充）、新建 `q_agent/ui/chat_worker.py`（ChatWorker QThread）、`q_agent/ui/pages/chat_page.py`（_on_send_clicked 重写 + 3 slot + SENDABLE_GROUPS + set_group_provider/set_host/update_send_enabled + _add_message 加 append_to_history + _scroll_to_bottom 防御 isValid）、`q_agent/ui/toolbar.py`（model_group_changed 信号 + current_model_group 方法）、`q_agent/ui/main_window.py`（注入 + 信号连接 + 启动 QTimer.singleShot 主动同步）、`q_agent/ui/theme.py`（MessageError 红色样式）、新增 `tests/test_ui_chat_page.py`（12 例）+ 扩充 `tests/test_llm_ollama.py`（6 例 chat_stream）+ `tests/test_ui_toolbar.py`（5 例 group）
+  - 测试：106 个测试通过，覆盖率 86.99%
+  - .exe：v0.0.8 已打包并验证通过
+- **取代**：无（在 ADR-021 三组分类基础上接真实调用，不修改 ADR-021 决策）

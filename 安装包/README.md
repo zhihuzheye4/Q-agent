@@ -45,3 +45,4 @@ pyinstaller \
 | v0.0.5 | 2026-06-20 | 1acc615 | UI 两项改进：下拉框本地/云端分组（QStandardItemModel disabled 分组头 + 3 家云端预置）+ AI 气泡模型名小标签。 |
 | v0.0.6 | 2026-06-20 | 5cff4c3 | 架构补齐：llm 层对称骨架——OllamaClient(LLMClient) 子类 + cloud/{openai,anthropic,gemini}.py 三个 stub；安装包规则改为只留最新版本。 |
 | v0.0.7 | 2026-06-20 | 6d631bf | 修复分类 bug：list_models() 返回 ModelEntry（含 is_remote），通过 Ollama /api/tags 的 remote_model/remote_host 字段区分真正本地模型 vs Ollama Cloud 转发模型；UI 下拉框改三组（本地 + Ollama Cloud + 云端预置）。 |
+| v0.0.8 | 2026-06-20 | 10ae75e | 通过 Ollama 唤醒模型 + 流式批量刷新：填充 OllamaClient.chat_stream（POST /api/chat stream=true NDJSON 解析）+ ChatWorker QThread 后台跑流式（500字/500ms 混合批量刷新阈值，避免一秒一字崩溃）+ chat_page 接入真实调用（loading 状态 + pending AI 气泡 + 错误红色气泡）+ toolbar 暴露 model_group_changed 信号供云端预置禁用发送按钮。 |
