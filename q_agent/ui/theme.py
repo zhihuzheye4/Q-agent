@@ -90,6 +90,11 @@ QLabel#MessageAI {{
     border-radius: 10px;
     border-top-left-radius: 2px;
 }}
+QLabel#ModelLabel {{
+    color: {COLOR_MUTED};
+    font-size: 11px;
+    padding: 0 4px;
+}}
 QLabel#MessagePlaceholder {{
     color: {COLOR_MUTED};
     padding: 24px;

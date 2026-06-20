@@ -93,6 +93,9 @@ class MainWindow(QMainWindow):
         self.toolbar = Toolbar(self, status_callback=self._show_status)
         self.addToolBar(self.toolbar)
 
+        # ChatPage 注入模型名提供器（绑定到 toolbar.current_model）
+        self.chat_page.set_model_provider(self.toolbar.current_model)
+
         # 菜单栏
         self.menu = MenuBar(self)
 

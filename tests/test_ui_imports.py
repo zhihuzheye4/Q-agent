@@ -120,7 +120,7 @@ def test_sidebar_tab_switches_stack(qapp) -> None:  # noqa: ANN001
 
 
 def test_chat_page_send_echos(qapp) -> None:  # noqa: ANN001
-    """对话 tab：发送按钮把输入文本 echo 到消息流。"""
+    """对话 tab：发送按钮把输入文本 echo 到消息流（含模型名标签）。"""
     from q_agent.ui.main_window import MainWindow
 
     w = MainWindow()
@@ -129,6 +129,7 @@ def test_chat_page_send_echos(qapp) -> None:  # noqa: ANN001
     chat.input.setPlainText("测试消息")
     chat._on_send_clicked()
     assert len(chat._messages) == initial + 2, "应追加 user + ai 各一条"
+    # _messages 元组现在是 (role, text, model_name)
     assert chat._messages[-2][0] == "user"
     assert chat._messages[-2][1] == "测试消息"
     assert chat._messages[-1][0] == "ai"
@@ -146,6 +147,47 @@ def test_chat_page_send_disabled_on_empty(qapp) -> None:  # noqa: ANN001
     assert w.chat_page.send_btn.isEnabled(), "有内容应启用发送按钮"
     w.chat_page.input.clear()
     assert not w.chat_page.send_btn.isEnabled(), "清空后应再次 disabled"
+
+
+def test_chat_page_ai_bubble_includes_model_name(qapp) -> None:  # noqa: ANN001
+    """AI 气泡 _messages 元组含模型名，model_provider 返回真模型名时记录到元组。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    chat = ChatPage()
+    chat.set_model_provider(lambda: "qwen2.5:7b")
+    chat.input.setPlainText("测试")
+    chat._on_send_clicked()
+    # 最后一条是 AI 消息，元组 (role, text, model_name)
+    last = chat._messages[-1]
+    assert last[0] == "ai"
+    assert last[2] == "qwen2.5:7b", f"AI 消息元组应含模型名，实际：{last}"
+
+
+def test_chat_page_ai_bubble_uses_placeholder_when_no_model(qapp) -> None:  # noqa: ANN001
+    """model_provider 返回 None 时 AI 气泡记录占位文本。"""
+    from q_agent.ui.pages.chat_page import NO_MODEL_TEXT, ChatPage
+
+    chat = ChatPage()
+    # 不注入 model_provider → _current_model_name 返回 NO_MODEL_TEXT
+    chat.input.setPlainText("测试")
+    chat._on_send_clicked()
+    last = chat._messages[-1]
+    assert last[0] == "ai"
+    assert last[2] == NO_MODEL_TEXT
+
+
+def test_chat_page_user_bubble_has_no_model_name(qapp) -> None:  # noqa: ANN001
+    """用户气泡元组 model_name 字段为 None。"""
+    from q_agent.ui.pages.chat_page import ChatPage
+
+    chat = ChatPage()
+    chat.set_model_provider(lambda: "qwen2.5:7b")
+    chat.input.setPlainText("测试")
+    chat._on_send_clicked()
+    # 倒数第二条是 user 消息
+    user_msg = chat._messages[-2]
+    assert user_msg[0] == "user"
+    assert user_msg[2] is None, "用户气泡不应带模型名"
 
 
 def test_settings_page_widgets_exist(qapp) -> None:  # noqa: ANN001
