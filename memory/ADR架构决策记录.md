@@ -411,3 +411,26 @@ self.chat_page.set_model_provider(self.toolbar.current_model)
   - 测试：74 个测试，覆盖率 88.02%
   - .exe：v0.0.6 已打包并启动验证通过
 - **取代**：ADR-010 的"历史版本长期保留不删"部分（其余部分如子目录按版本号命名、PyInstaller --onefile、.exe 不入 git 等仍有效）
+
+## ADR-021：Ollama Cloud 转发模型分类（remote_model / remote_host 字段判定）
+
+- **时间**：2026-06-20
+- **状态**：采纳
+- **背景**：用户准确指出 v0.0.6 之前的 list_models() 把 Ollama /api/tags 返回的所有模型一律塞"本地"组，没看 remote_model / remote_host 字段——minimax-m3 / deepseek-v4-pro 等通过 Ollama Cloud 转发的模型被误判为本地。这是分类 bug，不是结构问题。用户原话："你编写的函数代码里并没有实际判断这个模型是否在本地，而是通过 ollama list 获得模型后直接就填充了"。同时用户对"硬编码 vs 动态"也提出质疑：CLOUD_PRESET 是硬编码占位（ADR-019 明确），但本地组是动态调 API，用户的删除模型检测不出来推测不成立（list_models 无缓存每次启动重新调）。
+- **决策**：
+  1. **新增 ModelEntry NamedTuple**：`q_agent/llm/ollama.py` 定义 `ModelEntry(name, is_remote, remote_host)`
+  2. **list_models() 破坏性改签名**：返回 `list[ModelEntry]`（旧 list[str]）。`is_remote = bool(remote_model) or bool(remote_host)`，任一字段非空即判定为 cloud 转发
+  3. **UI 下拉框改三组结构**：本地（真本地 is_remote=False）+ Ollama Cloud（转发 is_remote=True）+ 云端预置（CLOUD_PRESET 占位）。Ollama Cloud 组仅在存在转发模型时才显示 header，避免空组干扰
+  4. **graceful degradation**：如果 Ollama 版本较老 /api/tags 不返回 remote_* 字段，所有模型 is_remote=False 退化为 v0.0.6 行为，不会更糟
+  5. **CLOUD_PRESET 保留不变**：是 ADR-019 明确的"未接 API 占位"，与"通过 Ollama 转发的真实 cloud 模型"语义不同（前者直连 OpenAI/Anthropic/Google API 未实现，后者通过 Ollama 代理已可调用）
+- **后果**：
+  - 优点：分类正确——minimax-m3 等显示在 Ollama Cloud 组而非本地组
+  - 优点：用户可视觉区分三类模型，下次 Ollama cloud 模型再多也不会再错分
+  - 优点：graceful——老版 Ollama 不会因缺字段报错
+  - 取舍：list_models() 签名破坏性变更（list[str] → list[ModelEntry]），调用点仅 toolbar.worker，已同步更新
+  - 取舍：CLOUD_PRESET 仍是硬编码占位，等真接 OpenAI/Anthropic/Google API 时改动态拉取（ADR-020+ 范围）
+- **影响**：
+  - 文件：`q_agent/llm/ollama.py`（新增 ModelEntry + list_models 改签名）、`q_agent/llm/__init__.py`（导出 ModelEntry）、`q_agent/ui/toolbar.py`（三组分类 + HEADER_OLLAMA_CLOUD）、`tests/test_llm_ollama.py`（3 例新增）、`tests/test_ui_toolbar.py`（重写覆盖三组 4 种组合）
+  - 测试：81 个测试通过，覆盖率 88.15%
+  - .exe：v0.0.7 已打包并启动验证通过
+- **取代**：无（修正 ADR-019 实现细节，不动 ADR-019 决策本身）

@@ -44,3 +44,4 @@ pyinstaller \
 | v0.0.4 | 2026-06-20 | 54abe5f | 第一个填充实际功能：模型下拉框 + 启动检测本地 Ollama（urllib + QThread 异步 + 失败占位项 + 刷新按钮）。 |
 | v0.0.5 | 2026-06-20 | 1acc615 | UI 两项改进：下拉框本地/云端分组（QStandardItemModel disabled 分组头 + 3 家云端预置）+ AI 气泡模型名小标签。 |
 | v0.0.6 | 2026-06-20 | 5cff4c3 | 架构补齐：llm 层对称骨架——OllamaClient(LLMClient) 子类 + cloud/{openai,anthropic,gemini}.py 三个 stub；安装包规则改为只留最新版本。 |
+| v0.0.7 | 2026-06-20 | 6d631bf | 修复分类 bug：list_models() 返回 ModelEntry（含 is_remote），通过 Ollama /api/tags 的 remote_model/remote_host 字段区分真正本地模型 vs Ollama Cloud 转发模型；UI 下拉框改三组（本地 + Ollama Cloud + 云端预置）。 |
