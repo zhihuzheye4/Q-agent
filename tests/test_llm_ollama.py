@@ -1,8 +1,11 @@
 """Ollama 客户端单测。
 
 覆盖：
-    - happy path：返回模型列表
+    - happy path：返回 ModelEntry 列表
     - 空模型列表
+    - 本地模型 is_remote=False
+    - Ollama Cloud 转发模型 is_remote=True（remote_model 字段）
+    - Ollama Cloud 转发模型 is_remote=True（remote_host 字段）
     - 连接拒绝（URLError）
     - 超时（URLError.reason = socket.timeout 或 "timed out"）
     - HTTP 错误
@@ -18,7 +21,7 @@ from unittest.mock import patch
 
 import pytest
 
-from q_agent.llm.ollama import OllamaError, list_models
+from q_agent.llm.ollama import ModelEntry, OllamaError, list_models
 
 
 class _FakeResponse:
@@ -38,11 +41,14 @@ class _FakeResponse:
 
 
 def test_list_models_happy() -> None:
-    """正常返回模型名列表。"""
+    """正常返回 ModelEntry 列表，本地模型 is_remote=False。"""
     body = b'{"models": [{"name": "qwen2.5:7b"}, {"name": "llama3:8b"}]}'
     with patch("q_agent.llm.ollama.urllib.request.urlopen", return_value=_FakeResponse(body)):
         result = list_models()
-    assert result == ["qwen2.5:7b", "llama3:8b"]
+    assert result == [
+        ModelEntry(name="qwen2.5:7b", is_remote=False, remote_host=""),
+        ModelEntry(name="llama3:8b", is_remote=False, remote_host=""),
+    ]
 
 
 def test_list_models_empty() -> None:
@@ -58,7 +64,7 @@ def test_list_models_uses_model_field_fallback() -> None:
     body = b'{"models": [{"model": "phi3:mini"}]}'
     with patch("q_agent.llm.ollama.urllib.request.urlopen", return_value=_FakeResponse(body)):
         result = list_models()
-    assert result == ["phi3:mini"]
+    assert result == [ModelEntry(name="phi3:mini", is_remote=False, remote_host="")]
 
 
 def test_list_models_skips_non_dict_entries() -> None:
@@ -66,7 +72,37 @@ def test_list_models_skips_non_dict_entries() -> None:
     body = b'{"models": [{"name": "ok:1"}, "garbage", 42, null]}'
     with patch("q_agent.llm.ollama.urllib.request.urlopen", return_value=_FakeResponse(body)):
         result = list_models()
-    assert result == ["ok:1"]
+    assert result == [ModelEntry(name="ok:1", is_remote=False, remote_host="")]
+
+
+def test_list_models_remote_via_remote_model_field() -> None:
+    """remote_model 字段非空 → is_remote=True（Ollama Cloud 转发模型）。"""
+    body = b"""{"models": [
+        {"name": "minimax-m3:latest", "remote_model": "minimax/m3", "remote_host": "https://ollama.com"},
+        {"name": "qwen2.5:7b"}
+    ]}"""
+    with patch("q_agent.llm.ollama.urllib.request.urlopen", return_value=_FakeResponse(body)):
+        result = list_models()
+    assert result[0].is_remote is True
+    assert result[0].remote_host == "https://ollama.com"
+    assert result[1].is_remote is False
+
+
+def test_list_models_remote_via_remote_host_only() -> None:
+    """仅 remote_host 字段非空也判定为 cloud 转发。"""
+    body = b'{"models": [{"name": "deepseek-v4-pro", "remote_host": "https://ollama.com"}]}'
+    with patch("q_agent.llm.ollama.urllib.request.urlopen", return_value=_FakeResponse(body)):
+        result = list_models()
+    assert result[0].is_remote is True
+    assert result[0].remote_host == "https://ollama.com"
+
+
+def test_list_models_remote_model_empty_string_is_local() -> None:
+    """remote_model 为空字符串 → is_remote=False（graceful，不误判）。"""
+    body = b'{"models": [{"name": "qwen2.5:7b", "remote_model": "", "remote_host": ""}]}'
+    with patch("q_agent.llm.ollama.urllib.request.urlopen", return_value=_FakeResponse(body)):
+        result = list_models()
+    assert result[0].is_remote is False
 
 
 def test_list_models_connection_refused() -> None:

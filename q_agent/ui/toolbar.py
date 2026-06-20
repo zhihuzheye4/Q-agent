@@ -4,17 +4,20 @@
     - 左侧 3 个 QToolButton（活 UI 空壳行为，仅状态栏回显）
     - 右侧"模型:"标签 + QComboBox（模型列表）+ 刷新 QToolButton
     - 启动时由 MainWindow 触发 refresh_models()，异步检测 Ollama
-    - 下拉框分组：本地（Ollama）/ 云端（占位，未接 API）
+    - 下拉框分组（v0.0.7 起三组）：
+        本地（Ollama）       — Ollama 上真正装在本地的模型（is_remote=False）
+        Ollama Cloud（转发）  — Ollama Cloud 转发的云端模型（is_remote=True）
+        云端（占位，未接 API） — CLOUD_PRESET 三家预置，未接 API
     - 检测中：下拉显示"检测中..."
-    - 检测成功有模型：填本地组 + 云端预置组
-    - 检测成功无模型：本地组占位"未发现本地模型" + 云端组照常
-    - 检测失败：下拉显示"未发现本地 LLM"占位项（不加云端组）
+    - 检测成功：填本地组 +（如有）Ollama Cloud 组 + 云端预置组
+    - 检测成功本地空但 cloud 转发有：本地组占位"未发现本地模型"
+    - 检测失败：下拉显示"未发现本地 LLM"占位项（不加任何后续组）
     - 用户选模型：emit model_selected(str)
     - 用户点刷新：再触发一次 refresh_models()
 
 异步检测：
     - ModelRefreshWorker(QThread) 后台跑 list_models，避免阻塞 UI 主线程
-    - 信号 models_found(list[str]) / refresh_failed(str) 回主线程更新 UI
+    - 信号 models_found(list[ModelEntry]) / refresh_failed(str) 回主线程更新 UI
 """
 
 from __future__ import annotations
@@ -31,7 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from q_agent.llm.ollama import OllamaError, list_models
+from q_agent.llm.ollama import ModelEntry, OllamaError, list_models
 from q_agent.ui.icons import load_icon
 
 # 下拉框占位文案
@@ -41,6 +44,7 @@ PLACEHOLDER_NO_LOCAL_MODEL = "未发现本地模型"
 
 # 分组头文案
 HEADER_LOCAL = "本地（Ollama）"
+HEADER_OLLAMA_CLOUD = "Ollama Cloud（转发）"
 HEADER_CLOUD = "云端（占位，未接 API）"
 
 # 云端预置模型（每家代表 1 个；后续真接 API 时改为动态拉取，ADR-020+）
@@ -50,7 +54,7 @@ CLOUD_PRESET: list[tuple[str, str]] = [
     ("gemini-2.5-pro (Google)", "cloud"),
 ]
 
-# itemData 角色：标记 header（值"header"）/ group 名（"local"/"cloud"）
+# itemData 角色：标记 header（值"header"）/ group 名（"local"/"ollama-cloud"/"cloud"）
 ITEM_ROLE = Qt.ItemDataRole.UserRole
 
 
@@ -161,33 +165,46 @@ class Toolbar(QToolBar):
         self._worker.refresh_failed.connect(self._on_refresh_failed)
         self._worker.start()
 
-    def _on_models_found(self, models: list[str]) -> None:
-        """worker 成功返回。构造本地组 + 云端组。"""
+    def _on_models_found(self, models: list[ModelEntry]) -> None:
+        """worker 成功返回。构造本地组 + Ollama Cloud 组（如有）+ 云端预置组。"""
         self._combo_model.clear()
+
+        # 拆分真正本地 vs Ollama Cloud 转发
+        local_entries = [m for m in models if not m.is_remote]
+        cloud_entries = [m for m in models if m.is_remote]
 
         # 本地组头
         self._add_header(HEADER_LOCAL)
-        if not models:
+        if not local_entries:
             self._add_placeholder(PLACEHOLDER_NO_LOCAL_MODEL)
         else:
-            for name in models:
-                self._add_selectable_item(name, group="local")
+            for entry in local_entries:
+                self._add_selectable_item(entry.name, group="local")
 
-        # 云端组头
+        # Ollama Cloud 转发组（仅有 cloud 转发模型时才显示）
+        if cloud_entries:
+            self._add_header(HEADER_OLLAMA_CLOUD)
+            for entry in cloud_entries:
+                self._add_selectable_item(entry.name, group="ollama-cloud")
+
+        # 云端 API 预置组头（CLOUD_PRESET 占位）
         self._add_header(HEADER_CLOUD)
         for name, group in CLOUD_PRESET:
             self._add_selectable_item(name, group=group)
 
-        # 启用下拉（即使本地空，云端组也可选）
+        # 启用下拉（即使本地空，后续组也可选）
         self.model_combo.setEnabled(True)
-        # 默认选中第一个可选项（本地首个模型 或 云端首个）
+        # 默认选中第一个可选项（本地首个 或 Ollama Cloud 首个 或 云端预置首个）
         first_selectable = self._first_selectable_index()
         if first_selectable >= 0:
             self.model_combo.setCurrentIndex(first_selectable)
-        if models:
-            msg = f"已发现 {len(models)} 个本地模型 + {len(CLOUD_PRESET)} 个云端预置"
-        else:
-            msg = f"本地 Ollama 无模型，已显示云端 {len(CLOUD_PRESET)} 个预置"
+
+        # 状态栏汇总
+        parts: list[str] = [f"{len(local_entries)} 个本地模型"]
+        if cloud_entries:
+            parts.append(f"{len(cloud_entries)} 个 Ollama Cloud 转发")
+        parts.append(f"{len(CLOUD_PRESET)} 个云端预置")
+        msg = "已发现 " + " + ".join(parts)
         self._status_callback(msg)
 
     def _on_refresh_failed(self, msg: str) -> None:
