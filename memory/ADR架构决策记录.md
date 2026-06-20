@@ -461,3 +461,28 @@ self.chat_page.set_model_provider(self.toolbar.current_model)
   - 测试：106 个测试通过，覆盖率 86.99%
   - .exe：v0.0.8 已打包并验证通过
 - **取代**：无（在 ADR-021 三组分类基础上接真实调用，不修改 ADR-021 决策）
+
+## ADR-023：模型内存释放 + 切换清空上下文 + 模型名颜色
+
+- **时间**：2026-06-20
+- **状态**：采纳
+- **背景**：v0.0.8 通过 Ollama 唤醒模型后，用户提三个新需求：
+  1. Ollama 默认 keep_alive=5min 把模型留在 RAM 待机；用户不想用某模型时它仍占内存。需"释放"按钮主动卸载出 RAM
+  2. 切换模型后历史对话对新模型无意义（不同模型的 system prompt/上下文不同），需清空当前对话 + 提示用户"模型已切换"
+  3. 现在所有 AI 气泡上方模型名都是统一灰色 #94A3B8，多模型对话时无法一眼区分是哪个模型说的
+- **决策**：
+  1. **内存释放**：新增 `release_model(model, host, timeout=30.0)` 同步函数（POST /api/generate body={"model":..., "keep_alive": 0}，Ollama 在当前生成完成后立即卸载模型权重；模型没在内存时 no-op）。toolbar 加 `release_btn`（与 refresh_btn 并排，Lucide power-off 风格 release-active.svg 图标），仅 local/ollama-cloud 启用，点击弹 QMessageBox 确认 → 启动 `ModelReleaseWorker(QThread)` 异步调用避免阻塞 UI；释放成功 emit `model_released(str)` + 状态栏"已释放 XXX 内存"，失败 emit `release_failed(str)`
+  2. **切换清空 + 系统提示**：toolbar._on_combo_changed 现同时 emit model_selected(str) + model_group_changed(group) + 同步 release_btn 状态。main_window 连接 `toolbar.model_selected → chat_page._on_model_changed`。`_on_model_changed(model_name)` 调 `_clear_messages()`（移除所有 row widget 保留末尾 stretch + 清空 _messages + pending 状态）+ `_add_system_message(SYSTEM_MSG_SWITCHED.format(model=...))`（居中布局 QLabel#MessageSystem 灰色斜体 12px，不入 _messages 不是对话内容）。首次自动选择抑制：`_suppress_select_emit` flag 让 _on_models_found 自动选首个模型时不 emit model_selected（避免清空初始问候），但仍 emit group_changed 同步发送按钮状态
+  3. **模型名颜色**：`MODEL_NAME_PALETTE` 8 个高对比色（绿/蓝/紫/粉/橙/青/黄/靛），`_model_color(name)` 用 `zlib.crc32(name.encode("utf-8")) % 8` 取色——zlib 跨进程稳定（不同于 Python 内置 hash 随机化），同一模型每次启动显示同色。AI 气泡上方 ModelLabel 用 `setStyleSheet(f"color: {color}; font-size: 11px; padding: 0 4px;")` 应用 hash 色，覆盖全局 QSS 的灰色规则；占位文本 NO_MODEL_TEXT 返回默认灰 #94A3B8
+- **后果**：
+  - 优点：用户可主动释放不用的模型内存，避免 Ollama RAM 堆积多个待机模型
+  - 优点：切换模型时上下文清空 + 系统提示，用户明确知道"新对话开始"，避免误以为模型在延续旧上下文
+  - 优点：模型名按 hash 稳定着色，多模型对话时一眼区分；同一模型每次显示同色不混淆
+  - 取舍：release_model 调用是同步阻塞（QThread 内 30s timeout），如果模型正在 chat 生成中调用，Ollama 会在当前生成完成后立即卸载（keep_alive=0 仅影响下次空闲时长，不会强制中断当前生成）
+  - 取舍：切换模型清空对话是硬规则——历史消息不保留；用户切回原模型也需重新输入（如需保留历史应走"新建对话"分离会话）
+  - 取舍：模型名 hash 颜色可能碰撞（不同模型名 crc32 mod 8 同值），但 8 色调色板足够日常使用，碰撞概率 1/8 可接受
+- **影响**：
+  - 文件：`q_agent/llm/ollama.py` 新增 release_model、`q_agent/llm/__init__.py` 导出、`q_agent/ui/toolbar.py` 加 release_btn + ModelReleaseWorker + _suppress_select_emit flag + _on_release_clicked/_on_released/_on_release_failed 三 slot、`q_agent/ui/pages/chat_page.py` 加 _on_model_changed + _clear_messages + _add_system_message + _model_color + _find_first_label_by_object_name（测试辅助）+ MODEL_NAME_PALETTE + SYSTEM_MSG_SWITCHED、`q_agent/ui/main_window.py` 连接 model_selected → _on_model_changed、`q_agent/ui/theme.py` 加 MessageSystem 样式、新增 `q_agent/assets/icons/release-active.svg` + manifest 注册
+  - 测试：14 例新增（release_model happy/http/connection/timeout 4 + ModelReleaseWorker released/failed 2 + chat_page _on_model_changed/_clear_messages/_model_color 稳定/占位/_add_system_message 5 + toolbar release_btn 初始禁用/local 启用/cloud 禁用 3），总 120 通过，覆盖率 85.31%
+  - .exe：v0.0.9 已打包并验证通过
+- **取代**：无（在 ADR-022 通过 Ollama 唤醒基础上扩展内存管理与 UX 改进，不修改 ADR-022 决策）
