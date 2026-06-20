@@ -251,7 +251,7 @@ commit 前必须：`ruff check . && ruff format --check . && mypy q_agent && pyt
 ## 十七、可执行安装包规则
 
 - **每个可运行里程碑必须生成一个 `.exe` 放到 `安装包/` 文件夹**（与 commit 同步）
-- 子目录按版本号命名：`安装包/v0.0.1/`、`安装包/v0.0.2/` …
+- 子目录按版本号命名：`安装包/v0.0.6/` …
 - 打包工具：PyInstaller（dev 依赖，装到 F 盘 venv，不污染 C 盘，不违反"零第三方运行时依赖"原则）
 - 打包入口：`q_agent/cli.py` 的 `main()`
 - 打包命令（F 盘 venv 内执行）：
@@ -260,8 +260,8 @@ commit 前必须：`ruff check . && ruff format --check . && mypy q_agent && pyt
   ```
   然后把 `安装包/Q-agent/` 重命名为 `安装包/v{版本}/`
 - `.exe` 二进制不入 git（已在 `.gitignore` 忽略），目录结构靠 `.gitkeep` + `README.md` 保留
-- 历史版本长期保留，不删旧版本
-- 生成后更新 `安装包/README.md` 的版本历史表
+- **只保留最新一代**：每次打新版本 .exe 时，删掉上一版子目录，只留当前最新版本（2026-06-20 用户明确修改，避免冗余历史 .exe 占空间；版本演进历史靠 `安装包/README.md` 的"版本历史"表 + git log 保留）
+- 生成后更新 `安装包/README.md` 的版本历史表（追加一行，不删旧行）
 
 ## 十八、UI 矢量图资源规则
 

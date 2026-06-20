@@ -1,13 +1,15 @@
-"""Ollama 本地 LLM 后端客户端（首版仅检测模型列表）。
+"""Ollama 本地 LLM 后端客户端。
 
 设计：
     - 使用标准库 urllib.request，零新运行时依赖（坚守 CLAUDE.md 第二十节）
-    - 仅实现 list_models()——供 UI 下拉框填充
-    - chat()/complete() 留待下一阶段（用户提需求后讨论）
+    - list_models()：UI 下拉框填充用，已实现
+    - OllamaClient(LLMClient)：完整客户端骨架，chat/complete 留 NotImplementedError
+      待下一阶段接 /api/chat 端点
 
 API 参考（Ollama 0.1.x+）：
-    GET http://localhost:11434/api/tags
-    返回：{"models": [{"name": "qwen2.5:7b", "model": "qwen2.5:7b", ...}, ...]}
+    GET  http://localhost:11434/api/tags   → 模型列表（已实现）
+    POST http://localhost:11434/api/chat   → 多轮对话（待实现）
+    POST http://localhost:11434/api/generate → 单轮补全（待实现）
 """
 
 from __future__ import annotations
@@ -16,18 +18,13 @@ import json
 import socket
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from typing import Any
+
+from q_agent.llm.base import LLMClient
 
 
 class OllamaError(Exception):
     """Ollama 后端调用失败统一异常。message 已是面向用户的友好描述。"""
-
-
-@dataclass(frozen=True)
-class OllamaModel:
-    """Ollama 模型条目。首版仅用 name，其余字段留作后续扩展。"""
-
-    name: str
 
 
 def list_models(
@@ -80,3 +77,27 @@ def list_models(
         if isinstance(name, str) and name:
             names.append(name)
     return names
+
+
+class OllamaClient(LLMClient):
+    """Ollama 本地 LLM 完整客户端骨架。
+
+    已实现：构造（model + host 参数存好）
+    待实现：chat() / complete() 调用 POST /api/chat 和 POST /api/generate
+
+    下一阶段（用户提"接对话"需求后）填充 chat/complete 方法体，不动构造与接口。
+    """
+
+    def __init__(self, model: str, host: str = "http://localhost:11434") -> None:
+        self.model = model
+        self.host = host
+
+    def chat(self, messages: list[dict[str, Any]]) -> str:
+        """多轮对话。待接 POST /api/chat（{"model":..., "messages":...}）。"""
+        raise NotImplementedError("Ollama chat 调用待实现，下一步用户提'接对话'需求后填充方法体")
+
+    def complete(self, prompt: str) -> str:
+        """单轮补全。待接 POST /api/generate。"""
+        raise NotImplementedError(
+            "Ollama complete 调用待实现，下一步用户提'接对话'需求后填充方法体"
+        )

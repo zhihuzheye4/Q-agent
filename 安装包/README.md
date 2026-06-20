@@ -1,14 +1,14 @@
 # 安装包
 
-本目录存放 Q-agent 各里程碑的可执行 `.exe` 文件。
+本目录存放 Q-agent 当前里程碑的可执行 `.exe` 文件。
 
 ## 规则
 
 - **每完成一个可运行里程碑，必须生成一个 .exe 放到本目录**
-- 子目录按版本号命名：`v0.0.1/`、`v0.0.2/`、`v0.1.0/` …
-- 每个子目录内含 PyInstaller 打包产物（`Q-agent.exe` + `_internal/`）
+- 子目录按版本号命名：`v0.0.5/`、`v0.0.6/` …
+- 每个子目录内含 PyInstaller 打包产物（`Q-agent.exe`）
 - `.exe` 二进制不入 git（已在 `.gitignore` 忽略），目录结构靠 `.gitkeep` + 本 README 保留
-- 历史版本长期保留，不删旧版本
+- **只保留最新一代**：每次打新版本时，删掉旧版本子目录，只留当前最新版本（2026-06-20 用户明确修改，避免冗余历史 .exe 占空间；版本演进历史靠下方"版本历史"表 + git log 即可）
 
 ## 打包命令（F 盘 venv 内执行）
 
@@ -22,6 +22,7 @@ pyinstaller \
   --add-data "q_agent/assets;q_agent/assets" \
   --clean --noconfirm q_agent/cli.py
 # 打包后把 安装包/Q-agent.exe 移到 安装包/v{版本}/Q-agent.exe
+# 同时删除上一版子目录，只留当前最新
 ```
 
 约束：
@@ -33,10 +34,13 @@ pyinstaller \
 
 ## 版本历史
 
+> 表保留所有版本的演进记录（commit + 说明），但 `.exe` 二进制只留当前最新。
+
 | 版本 | 日期 | 对应 commit | 说明 |
 |------|------|-------------|------|
-| v0.0.1 | 2026-06-19 | （本次 commit） | UI 界面空壳版本：4 tab 切换 + 输入框/发送按钮 + 设置面板 + 工具栏 + 菜单栏。活的 UI 无实际功能，对接本地 LLM 留待下一里程碑。47MB .exe 零外部依赖。 |
-| v0.0.2 | 2026-06-19 | （本次 commit） | UI 改进：(1) tooltip 透明背景修复白色方块遮盖文字 (2) 气泡宽度比例 0.7→0.92 长发言友好 (3) 设置齿轮换用 Feather settings 经典 8 齿 path（stroke-width=2 渲染完整）(4) 输入框 QLineEdit→QTextEdit 多行支持长发言，Enter 发送 Shift+Enter 换行，高度 44-200px 自适应。45MB .exe 零外部依赖。 |
-| v0.0.3 | 2026-06-19 | （本次 commit） | UI 改进：输入框高度随内容动态变化——监听 documentLayout().documentSizeChanged 信号，根据文档实际高度在 [44, 200] 之间钳制 setFixedHeight，超出 200px 显示滚动条，清空回 44。45MB .exe 零外部依赖。 |
-| v0.0.4 | 2026-06-20 | 54abe5f | 第一个填充实际功能：UI 右上角加模型下拉框 + 刷新按钮，启动时异步检测本地 Ollama 模型（GET /api/tags）。用 urllib 标准库零新运行时依赖；ModelRefreshWorker(QThread) 后台跑避免阻塞 UI；检测失败显示"未发现本地 LLM"占位项 + 状态栏提示。47MB .exe 零外部依赖。 |
-| v0.0.5 | 2026-06-20 | 1acc615 | UI 两项改进：(1) 模型下拉框分本地/云端两组——本地（Ollama）+ 云端（占位，未接 API）3 家代表（gpt-4o/claude-opus-4-7/gemini-2.5-pro），用 QStandardItemModel 支持 disabled 分组头 (2) AI 气泡上方显示模型名小标签（取自 toolbar.current_model）。47MB .exe 零外部依赖。 |
+| v0.0.1 | 2026-06-19 | e0d059b | UI 界面空壳版本：4 tab 切换 + 输入框/发送按钮 + 设置面板 + 工具栏 + 菜单栏。活的 UI 无实际功能。 |
+| v0.0.2 | 2026-06-19 | 681b992 | UI 改进：tooltip 透明背景 + 气泡宽度 0.7→0.92 + Feather 齿轮 + 输入框 QLineEdit→QTextEdit 多行。 |
+| v0.0.3 | 2026-06-19 | 7880653 | UI 改进：输入框动态高度（documentSizeChanged + [44,200] 钳制 setFixedHeight）。 |
+| v0.0.4 | 2026-06-20 | 54abe5f | 第一个填充实际功能：模型下拉框 + 启动检测本地 Ollama（urllib + QThread 异步 + 失败占位项 + 刷新按钮）。 |
+| v0.0.5 | 2026-06-20 | 1acc615 | UI 两项改进：下拉框本地/云端分组（QStandardItemModel disabled 分组头 + 3 家云端预置）+ AI 气泡模型名小标签。 |
+| v0.0.6 | 2026-06-20 | （本次 commit） | 架构补齐：llm 层对称骨架——OllamaClient(LLMClient) 子类 + cloud/{openai,anthropic,gemini}.py 三个 stub；安装包规则改为只留最新版本。 |
