@@ -127,8 +127,12 @@ class MainWindow(QMainWindow):
         # toolbar 用户切换模型 → chat_page 清空当前对话 + 系统提示（v0.0.9 新增）
         self.toolbar.model_selected.connect(self.chat_page._on_model_changed)
 
-        # 菜单栏（注入 monitor_callback，"监控"菜单 triggered → 弹出独立窗口）
-        self.menu = MenuBar(self, monitor_callback=self._open_hardware_monitor)
+        # 菜单栏（注入 monitor_callback / close_callback，"监控"菜单 triggered）
+        self.menu = MenuBar(
+            self,
+            monitor_callback=self._open_hardware_monitor,
+            close_callback=self._close_hardware_monitor,
+        )
 
         # 状态栏
         self.statusBar().showMessage("就绪")
@@ -144,16 +148,31 @@ class MainWindow(QMainWindow):
     def _open_hardware_monitor(self) -> None:
         """v0.0.15 新增：菜单"打开监控"triggered → 实例化 + show HardwareMonitorWindow。
 
+        独立顶级窗口（parent=None + Qt.Window flag），不依附 MainWindow。
         若已打开则再次 show + raise 激活，避免重复实例化。
+        用户关闭监控窗口后 closed 信号触发 → 清空 _hw_window 引用，下次点"打开监控"重新实例化。
         """
         if self._hw_window is None:
-            self._hw_window = HardwareMonitorWindow(self)
+            self._hw_window = HardwareMonitorWindow()
+            self._hw_window.closed.connect(self._on_hw_window_closed)
         self._hw_window.start()
         self._hw_window.show()
         self._hw_window.raise_()
 
+    def _on_hw_window_closed(self) -> None:
+        """监控窗口关闭后清空引用，下次"打开监控"重新实例化。"""
+        self._hw_window = None
+
+    def _close_hardware_monitor(self) -> None:
+        """v0.0.15 修订新增：菜单"关闭监控"triggered → 关闭独立窗口（如有）。"""
+        if self._hw_window is not None:
+            self._hw_window.close()
+
     def closeEvent(self, event: QCloseEvent) -> None:
-        """窗口关闭时优雅关闭硬件监控独立窗口（如有），避免 worker 线程悬挂。"""
+        """主窗口关闭时优雅关闭硬件监控独立窗口（如有），避免 worker 线程悬挂。
+
+        独立顶级窗口不会随主窗口自动关闭，需主动 close() 触发其 closeEvent 停 worker。
+        """
         if self._hw_window is not None:
             self._hw_window.close()
         super().closeEvent(event)

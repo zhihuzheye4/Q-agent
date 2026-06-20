@@ -110,9 +110,10 @@ def test_main_window_constructs(qapp) -> None:  # noqa: ANN001
     assert w.stack.count() == 4, "主内容区应有 4 个页面"
     # v0.0.15：hardware_monitor 从 left panel 移除，独立窗口由 menu 触发
     assert not hasattr(w, "hardware_monitor"), "v0.0.15 应移除 w.hardware_monitor 属性"
-    # v0.0.15：menu 注入 monitor_callback，_hw_window 初始为 None
+    # v0.0.15：menu 注入 monitor_callback / close_callback，_hw_window 初始为 None
     assert w._hw_window is None, "_hw_window 应初始为 None"
     assert w.menu._monitor_callback is not None, "menu 应注入 monitor_callback"
+    assert w.menu._close_callback is not None, "menu 应注入 close_callback"
 
 
 def test_sidebar_tab_switches_stack(qapp) -> None:  # noqa: ANN001

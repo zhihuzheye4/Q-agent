@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from PySide6.QtGui import QCloseEvent, QPaintEvent
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
@@ -168,14 +168,24 @@ class MonitorCell(QWidget):
 
 
 class HardwareMonitorWindow(QWidget):
-    """硬件监控独立窗口：6 个 MonitorCell（2 列 × 3 行）+ 后台 worker。
+    """硬件监控独立顶级窗口（v0.0.15 修订）：6 个 MonitorCell（2 列 × 3 行）+ 后台 worker。
+
+    v0.0.15 修订（用户反馈"不是弹出式面板要独立 UI 窗口"）：
+    - parent=None + Qt.WindowType.Window flag → 独立顶级窗口，不依附 MainWindow
+    - Windows 任务栏显示独立条目，自带标题栏 + X 关闭按钮
+    - 关闭时 emit closed 信号 → MainWindow 清空 _hw_window 引用（下次"打开监控"重新实例化）
+    - closeEvent 优雅停止 worker
 
     启动 worker 后开始采集；关闭窗口时 worker.stop() + wait 优雅退出。
     无 NVIDIA 显卡时 GPU/VRAM/GPU°C 折线画灰色 N/A 占位；CPU°C 永远 N/A（Windows psutil 限制）。
     """
 
+    closed = Signal()
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        # 独立顶级窗口：Qt.Window flag 明确不依附父窗口
+        self.setWindowFlag(Qt.WindowType.Window, True)
         self.setWindowTitle("硬件监控 - Q-agent")
         self.setFixedSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.setObjectName("HardwareMonitorWindow")
@@ -223,6 +233,7 @@ class HardwareMonitorWindow(QWidget):
             self._cells[key].set_sample(sample.get(key))
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: ANN001
-        """窗口关闭时优雅停止 worker。"""
+        """窗口关闭时：停止 worker + emit closed 通知 MainWindow 清引用。"""
         self.stop()
+        self.closed.emit()
         super().closeEvent(event)

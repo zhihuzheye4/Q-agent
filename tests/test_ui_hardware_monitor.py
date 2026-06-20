@@ -227,3 +227,28 @@ def test_hardware_monitor_window_start_stop_no_crash(qapp: QApplication) -> None
     w.stop()
     # 再次 stop 不崩（幂等）
     w.stop()
+
+
+def test_hardware_monitor_window_is_independent_top_level(qapp: QApplication) -> None:
+    """v0.0.15 修订：独立顶级窗口（Qt.Window flag），parent=None 时不依附父窗口。"""
+    from PySide6.QtCore import Qt
+
+    from q_agent.ui.hardware_monitor_window import HardwareMonitorWindow
+
+    w = HardwareMonitorWindow()
+    # Qt.Window flag 应被设置（独立顶级窗口）
+    assert w.windowFlags() & Qt.WindowType.Window, "应设置 Qt.Window flag 为独立顶级窗口"
+
+
+def test_hardware_monitor_window_emits_closed_signal(qapp: QApplication) -> None:
+    """v0.0.15 修订：closeEvent 应 emit closed 信号让 MainWindow 清引用。"""
+    from q_agent.ui.hardware_monitor_window import HardwareMonitorWindow
+
+    w = HardwareMonitorWindow()
+    received: list[bool] = []
+    w.closed.connect(lambda: received.append(True))
+    # 直接触发 closeEvent 模拟关闭（QCloseEvent 无参数构造）
+    from PySide6.QtGui import QCloseEvent
+
+    w.closeEvent(QCloseEvent())
+    assert received == [True], "closeEvent 应 emit closed 信号"
