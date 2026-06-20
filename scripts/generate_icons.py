@@ -371,10 +371,11 @@ def icon_about_active() -> str:
 
 
 def icon_stop_active() -> str:
-    """工具栏：取消生成（Lucide square 实心方块，停止符号）"""
+    """工具栏：取消生成（外圈圆形描边 + 内部红色方块，停止符号）"""
     body = group(
         [
-            rect(8, 8, 8, 8, **{"fill": "currentColor"}),
+            circle(12, 12, 10),
+            rect(8.5, 8.5, 7, 7, **{"fill": "#EF4444", "stroke": "none"}),
         ]
     )
     return render_svg(body)

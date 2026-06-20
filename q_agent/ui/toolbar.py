@@ -150,12 +150,6 @@ class Toolbar(QToolBar):
         # v0.0.16：从 status_callback 占位改为 emit clear_requested 信号
         clear.triggered.connect(self.clear_requested.emit)
 
-        # v0.0.17 新增：取消生成按钮（stop-active 图标）
-        cancel = self.addAction(load_icon("stop"), "取消")
-        cancel.setToolTip("取消当前 AI 回复生成（中断流式）")
-        cancel.setStatusTip("取消生成")
-        cancel.triggered.connect(self.cancel_requested.emit)
-
         about = self.addAction(load_icon("about"), "关于")
         about.setToolTip("关于 Q-agent（版本信息与功能说明）")
         about.setStatusTip("关于 Q-agent")
@@ -185,6 +179,13 @@ class Toolbar(QToolBar):
         self.model_combo.setToolTip("本地 Ollama 可用模型 + 云端预置（占位），点击刷新重新检测本地")
         self.model_combo.currentIndexChanged.connect(self._on_combo_changed)
         right_layout.addWidget(self.model_combo)
+
+        # v0.0.17 新增：取消生成按钮（位置：模型下拉列表右侧）
+        # 外圈圆形描边 + 内部红色方块（stop-active.svg），中断当前 ChatWorker 流式
+        cancel = self.addAction(load_icon("stop"), "取消")
+        cancel.setToolTip("取消当前 AI 回复生成（中断流式）")
+        cancel.setStatusTip("取消生成")
+        cancel.triggered.connect(self.cancel_requested.emit)
 
         self.refresh_btn = self.addAction(load_icon("refresh"), "刷新")
         self.refresh_btn.setToolTip("重新检测本地 Ollama 可用模型")

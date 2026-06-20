@@ -289,22 +289,35 @@ class ChatPage(QWidget):
     def _cancel_chat(self) -> None:
         """v0.0.17 新增：取消当前 ChatWorker 流式生成（toolbar"取消"按钮触发）。
 
-        无生成中 worker 时无操作（不抛错）。
+        v0.0.17 修订：唤醒/思考阶段（chat_stream 阻塞等首个 chunk 时）worker 无法
+        检查 _stop 标志，导致首次点击无反应。改为同步立即调 _on_chat_aborted 清理 UI，
+        worker.stop() 仅设标志让后台自然早退（chat_aborted 信号到达时幂等清理）。
         """
         if self._worker is not None and self._worker.isRunning():
             self._worker.stop()
+            # 同步立即响应 UI（不等 chat_aborted 信号，处理唤醒阶段阻塞）
+            # 信号到达时 _on_chat_aborted 会再次被调用，幂等清理（pending 已 None 时无操作）
+            self._on_chat_aborted()
 
     def _on_chat_aborted(self) -> None:
         """v0.0.17 新增：ChatWorker 被用户取消 → 保留已生成的部分回复入历史 + 恢复输入状态。
 
         已收到的部分回复加"[已取消]"后缀让用户知道是中断而非完整回复。
         无部分回复时仅清理 pending 状态（如取消发生在首个 chunk 之前）。
+        v0.0.17 修订：同步 setText 让气泡立即显示"[已取消]"后缀；幂等处理（pending 已
+        清理时无操作），支持 _cancel_chat 同步调用 + 信号到达时再次调用。
         """
+        if self._pending_bubble is None:
+            # 已被 _cancel_chat 同步清理过，信号到达时直接 no-op
+            return
         self._remove_pending_loading()
-        if self._pending_bubble is not None and self._pending_text:
-            self._messages.append(
-                ("ai", self._pending_text + " [已取消]", self._pending_model_name)
-            )
+        if self._pending_text:
+            display_text = self._pending_text + " [已取消]"
+            self._pending_bubble.setText(display_text)
+            self._messages.append(("ai", display_text, self._pending_model_name))
+        else:
+            # 取消发生在首个 chunk 之前：气泡仅显示"[已取消]"占位
+            self._pending_bubble.setText("[已取消]")
         self._pending_bubble = None
         self._pending_text = ""
         self._pending_model_name = None
