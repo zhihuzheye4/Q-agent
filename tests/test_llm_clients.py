@@ -36,11 +36,20 @@ def test_ollama_client_constructs_and_stores_args() -> None:
     assert c2.host == "http://my-host:11434"
 
 
-def test_ollama_client_chat_raises_not_implemented() -> None:
-    """OllamaClient.chat 待实现，抛 NotImplementedError。"""
+def test_ollama_client_chat_returns_joined_stream() -> None:
+    """OllamaClient.chat 走 chat_stream 拼接返回完整文本。"""
+    from unittest.mock import patch
+
     c = OllamaClient(model="qwen2.5:7b")
-    with pytest.raises(NotImplementedError):
-        c.chat([{"role": "user", "content": "hi"}])
+
+    def fake_stream(self: object, messages: object, timeout: float = 120.0) -> object:
+        yield "Hello"
+        yield ", "
+        yield "world!"
+
+    with patch.object(OllamaClient, "chat_stream", fake_stream):
+        result = c.chat([{"role": "user", "content": "hi"}])
+    assert result == "Hello, world!"
 
 
 def test_ollama_client_complete_raises_not_implemented() -> None:

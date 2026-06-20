@@ -81,6 +81,7 @@ class Toolbar(QToolBar):
     """顶部工具栏。"""
 
     model_selected = Signal(str)
+    model_group_changed = Signal(object)  # str | None，"local"/"ollama-cloud"/"cloud"/None
 
     def __init__(
         self,
@@ -261,6 +262,9 @@ class Toolbar(QToolBar):
         if text in (PLACEHOLDER_DETECTING, PLACEHOLDER_EMPTY, PLACEHOLDER_NO_LOCAL_MODEL):
             return
         self.model_selected.emit(text)
+        # 同时 emit 分组（"local"/"ollama-cloud"/"cloud"），供 chat_page 决定是否禁用发送按钮
+        group = item.data(ITEM_ROLE)
+        self.model_group_changed.emit(group)
 
     def current_model(self) -> str | None:
         """当前选中模型名，未选中 / 占位 / header 时返回 None。"""
@@ -274,3 +278,20 @@ class Toolbar(QToolBar):
         if text in (PLACEHOLDER_DETECTING, PLACEHOLDER_EMPTY, PLACEHOLDER_NO_LOCAL_MODEL, ""):
             return None
         return text
+
+    def current_model_group(self) -> str | None:
+        """当前选中模型的分组名（"local"/"ollama-cloud"/"cloud"）。
+
+        未选中 / 占位 / header 时返回 None。供 chat_page 判断是否允许发送。
+        """
+        idx = self.model_combo.currentIndex()
+        if idx < 0:
+            return None
+        item = self._combo_model.item(idx)
+        if item is None or not item.isEnabled():
+            return None
+        text = item.text()
+        if text in (PLACEHOLDER_DETECTING, PLACEHOLDER_EMPTY, PLACEHOLDER_NO_LOCAL_MODEL, ""):
+            return None
+        group = item.data(ITEM_ROLE)
+        return group if isinstance(group, str) else None

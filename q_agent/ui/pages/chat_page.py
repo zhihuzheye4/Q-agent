@@ -1,7 +1,11 @@
 """对话 tab：消息流 + 输入框 + 发送按钮。
 
-行为（活 UI 空壳）：
-    - 发送按钮按下时，输入框文本追加到消息流（纯前端 echo，无 LLM 调用）
+行为（v0.0.8 起接 Ollama 真实调用）：
+    - 发送按钮按下时，调当前选中模型对应的 OllamaClient.chat_stream 流式生成
+    - ChatWorker 后台跑流式，buffer 攒满 500 字 OR 满 500ms 任一触发就 emit 一段
+    - 主线程收到 chunk 追加到 pending AI 气泡，done 时整段入历史 _messages
+    - 失败时显示红色错误气泡（区别于正常 AI 气泡）
+    - 选中云端预置占位（gpt-4o/claude/gemini，未接 API）时发送按钮禁用
     - 用户消息气泡贴右边，AI 消息气泡贴左边
     - AI 气泡上方显示当前回答的模型名小标签（取自 toolbar.current_model）
     - 气泡最大宽度跟随容器宽度（容器 92%），长发言可占满大部分宽度
@@ -13,6 +17,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QKeyEvent, QResizeEvent
@@ -27,6 +32,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from q_agent.ui.chat_worker import ChatWorker
+
 # 气泡最大宽度占容器可用宽度的比例（长发言友好，短发言按内容自适应）
 BUBBLE_WIDTH_RATIO = 0.92
 # 气泡最小宽度（避免窗口极窄时气泡太窄不可读）
@@ -36,6 +43,10 @@ INPUT_MIN_HEIGHT = 44
 INPUT_MAX_HEIGHT = 200
 # 未选模型时 AI 气泡上方显示的占位文本
 NO_MODEL_TEXT = "(未选模型)"
+# 允许发送的分组：本地 + Ollama Cloud 转发（云端预置走 OpenAI/Anthropic/Google API 未接，禁用）
+SENDABLE_GROUPS = ("local", "ollama-cloud")
+# 默认 Ollama host（v0.0.8 hardcoded，下版本接 QSettings 后改）
+DEFAULT_HOST = "http://localhost:11434"
 
 
 class ChatInput(QTextEdit):
@@ -91,12 +102,44 @@ class ChatPage(QWidget):
         super().__init__(parent)
         self._messages: list[tuple[str, str, str | None]] = []  # (role, text, model_name)
         self._model_provider: Callable[[], str | None] | None = None
+        self._group_provider: Callable[[], str | None] | None = None
+        self._host: str = DEFAULT_HOST
+        self._worker: ChatWorker | None = None
+        self._pending_bubble: QLabel | None = None
+        self._pending_text: str = ""
+        self._pending_model_name: str | None = None
         self._bubble_labels: list[QLabel] = []  # 用于 resize 时批量更新最大宽度
         self._build_ui()
 
     def set_model_provider(self, provider: Callable[[], str | None]) -> None:
         """注入模型名提供器（MainWindow 调用，绑定到 toolbar.current_model）。"""
         self._model_provider = provider
+
+    def set_group_provider(self, provider: Callable[[], str | None]) -> None:
+        """注入分组提供器（MainWindow 调用，绑定到 toolbar.current_model_group）。"""
+        self._group_provider = provider
+
+    def set_host(self, host: str) -> None:
+        """注入 Ollama host（v0.0.8 默认 DEFAULT_HOST，下版本接 QSettings 后改）。"""
+        self._host = host
+
+    def update_send_enabled(self, group: str | None) -> None:
+        """根据当前选中模型的分组 + 输入框内容决定发送按钮是否可用。
+
+        云端预置（cloud，未接 API）→ 禁用 + tooltip 提示
+        本地 / Ollama Cloud 转发 → 启用 iff 输入框非空
+        其他（None）→ 禁用
+        """
+        if group == "cloud":
+            self.send_btn.setEnabled(False)
+            self.send_btn.setToolTip("云端 API 未接，请选本地或 Ollama Cloud 模型")
+        elif group in SENDABLE_GROUPS:
+            has_text = bool(self.input.toPlainText().strip())
+            self.send_btn.setEnabled(has_text)
+            self.send_btn.setToolTip("发送当前输入框内容（也可按 Enter）")
+        else:
+            self.send_btn.setEnabled(False)
+            self.send_btn.setToolTip("未选模型，请先在右上角下拉框选择")
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -142,20 +185,84 @@ class ChatPage(QWidget):
         self._add_message("ai", "你好，我是 Q-agent（活 UI 空壳）。输入消息后按发送，会原样回显。")
 
     def _on_input_changed(self) -> None:
-        text = self.input.toPlainText().strip()
-        self.send_btn.setEnabled(bool(text))
+        """输入框内容变化 → 重新判定发送按钮启用（基于当前分组 + 输入非空）。"""
+        group = self._group_provider() if self._group_provider else None
+        self.update_send_enabled(group)
 
     def _on_send_clicked(self) -> None:
         text = self.input.toPlainText().strip()
         if not text:
             return
-        self._add_message("user", text)
-        # 活 UI 空壳：AI 固定回声占位（不调 LLM）
-        # AI 气泡上方显示用户当前选中的模型名（取自注入的 model_provider）
+        # 防御性：当前分组不可发送时不调（正常情况 send_btn 已禁用）
+        group = self._group_provider() if self._group_provider else None
+        if group not in SENDABLE_GROUPS:
+            return
         model_name = self._current_model_name()
-        self._add_message("ai", f"[echo 回声] {text}", model_name=model_name)
+
+        # 用户消息入历史
+        self._add_message("user", text)
+
+        # 给 LLM 的 messages：含到当前 user 为止的全部历史
+        messages_for_llm: list[dict[str, Any]] = [
+            {"role": r, "content": t} for r, t, _ in self._messages
+        ]
+
+        # 创建 pending AI 气泡（不污染 _messages，等生成完毕再 append）
+        pending_bubble = self._add_message("ai", "", model_name=model_name, append_to_history=False)
+        self._pending_bubble = pending_bubble
+        self._pending_text = ""
+        self._pending_model_name = model_name
+
+        # 进入 loading 状态：禁用输入框 + 按钮，按钮文字变"生成中"
+        self.send_btn.setEnabled(False)
+        self.input.setEnabled(False)
+        self.send_btn.setText("生成中")
+
         self.input.clear()
         self._scroll_to_bottom()
+
+        # 启动 ChatWorker 后台流式调用
+        self._worker = ChatWorker(model_name, self._host, messages_for_llm, parent=self)
+        self._worker.chunk_received.connect(self._on_chunk)
+        self._worker.chat_failed.connect(self._on_chat_failed)
+        self._worker.chat_done.connect(self._on_chat_done)
+        self._worker.start()
+
+    def _on_chunk(self, text: str) -> None:
+        """ChatWorker 流式 flush 一段 → 追加到 pending AI 气泡。"""
+        if self._pending_bubble is None:
+            return
+        self._pending_text += text
+        self._pending_bubble.setText(self._pending_text)
+        self._scroll_to_bottom()
+
+    def _on_chat_failed(self, msg: str) -> None:
+        """ChatWorker 失败 → 把 pending 气泡变红显示错误。"""
+        if self._pending_bubble is not None:
+            self._pending_bubble.setText(f"❌ {msg}")
+            self._pending_bubble.setObjectName("MessageError")
+            # 强制重应用样式（objectName 变了，需要 polish 刷新）
+            self._pending_bubble.style().unpolish(self._pending_bubble)
+            self._pending_bubble.style().polish(self._pending_bubble)
+            self._bubble_labels.append(self._pending_bubble)  # 错误气泡也参与 resize
+        self._reset_send_state()
+
+    def _on_chat_done(self) -> None:
+        """ChatWorker 完成 → 完整回复入历史 + 恢复输入状态。"""
+        if self._pending_bubble is not None and self._pending_text:
+            self._messages.append(("ai", self._pending_text, self._pending_model_name))
+        self._pending_bubble = None
+        self._pending_text = ""
+        self._pending_model_name = None
+        self._reset_send_state()
+
+    def _reset_send_state(self) -> None:
+        """恢复输入框 + 发送按钮可用状态，按钮文字还原。"""
+        self.input.setEnabled(True)
+        self.send_btn.setText("发送")
+        # 重新按当前分组 + 输入框内容判定启用状态
+        self.update_send_enabled(self._group_provider() if self._group_provider else None)
+        self.input.setFocus()
 
     def _current_model_name(self) -> str:
         """从 model_provider 取当前模型名；未注入或返回 None 时给占位。"""
@@ -169,7 +276,13 @@ class ChatPage(QWidget):
         avail = max(self.messages_container.width() - 48, BUBBLE_MIN_WIDTH)
         return max(int(avail * BUBBLE_WIDTH_RATIO), BUBBLE_MIN_WIDTH)
 
-    def _add_message(self, role: str, text: str, model_name: str | None = None) -> None:
+    def _add_message(
+        self,
+        role: str,
+        text: str,
+        model_name: str | None = None,
+        append_to_history: bool = True,
+    ) -> QLabel:
         """追加消息气泡。role: 'user'（贴右）/ 'ai'（贴左）。
 
         AI 消息时 model_name 非空 → 气泡上方加模型名小标签。
@@ -177,6 +290,13 @@ class ChatPage(QWidget):
             AI 行：[stretch][垂直列：模型名label + 气泡label]  → 贴左
             用户行：[垂直列：气泡label][stretch]  → 贴右
         气泡最大宽度 = 容器宽度 × 92%，长发言可占满大部分宽度。
+
+        Args:
+            append_to_history: 是否加入 _messages 历史。pending AI 气泡用 False
+                不污染历史，等 chat_done 时再单独 append。
+
+        Returns:
+            bubble_label 引用，供外部追加 text（流式 chunk 用）
         """
         max_w = self._bubble_max_width()
 
@@ -215,8 +335,10 @@ class ChatPage(QWidget):
             row_layout.addStretch(1)
         # 插入到 stretch 之前
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, row)
-        self._messages.append((role, text, model_name))
+        if append_to_history:
+            self._messages.append((role, text, model_name))
         self._scroll_to_bottom()
+        return bubble_label
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: ANN001
         """窗口大小变化时，重设所有气泡 + 模型名 label 的最大宽度。"""
@@ -226,11 +348,18 @@ class ChatPage(QWidget):
             label.setMaximumWidth(max_w)
 
     def _scroll_to_bottom(self) -> None:
+        import contextlib
+
         from PySide6.QtCore import QTimer
+        from shiboken6 import isValid
 
         bar = self.scroll_area.verticalScrollBar()
 
         def _scroll() -> None:
-            bar.setValue(bar.maximum())
+            # 防御：scroll_area 可能已被销毁（测试场景跨用例残留的 deferred 调用）
+            if not isValid(bar):
+                return
+            with contextlib.suppress(RuntimeError):
+                bar.setValue(bar.maximum())
 
         QTimer.singleShot(0, _scroll)

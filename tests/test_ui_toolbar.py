@@ -361,3 +361,67 @@ def test_main_window_auto_refreshes_on_startup(qapp, monkeypatch) -> None:  # no
     QTimer.singleShot(500, loop.quit)
     loop.exec()
     assert called, "MainWindow 启动应自动触发一次 list_models 调用"
+
+
+def test_model_group_changed_emitted_on_combo_change(qapp) -> None:  # noqa: ANN001
+    """切换模型 → 同时 emit model_selected + model_group_changed。"""
+    from q_agent.ui.toolbar import Toolbar
+
+    tb = Toolbar()
+    tb._on_models_found([_entry("qwen2.5:7b")])
+    selected: list[str] = []
+    groups: list[object] = []
+    tb.model_selected.connect(selected.append)
+    tb.model_group_changed.connect(groups.append)
+    # _on_models_found 已自动选中 index 1（首个可选项），需先切到非可选项再切回触发信号
+    tb.model_combo.setCurrentIndex(0)  # 本地 header（disabled，不 emit）
+    tb.model_combo.setCurrentIndex(1)  # qwen2.5:7b（local 分组）
+    assert selected == ["qwen2.5:7b"]
+    assert groups == ["local"]
+
+
+def test_model_group_changed_for_ollama_cloud(qapp) -> None:  # noqa: ANN001
+    """切到 Ollama Cloud 转发模型 → emit group='ollama-cloud'。"""
+    from q_agent.ui.toolbar import Toolbar
+
+    tb = Toolbar()
+    tb._on_models_found(
+        [
+            _entry("qwen2.5:7b"),
+            _entry("minimax-m3:latest", is_remote=True, remote_host="https://ollama.com"),
+        ]
+    )
+    groups: list[object] = []
+    tb.model_group_changed.connect(groups.append)
+    # 索引：0 本地header / 1 qwen / 2 Ollama Cloud header / 3 minimax
+    tb.model_combo.setCurrentIndex(3)
+    assert groups == ["ollama-cloud"]
+
+
+def test_current_model_group_returns_group(qapp) -> None:  # noqa: ANN001
+    """current_model_group() 返回当前选中模型的分组字符串。"""
+    from q_agent.ui.toolbar import Toolbar
+
+    tb = Toolbar()
+    tb._on_models_found([_entry("qwen2.5:7b")])
+    tb.model_combo.setCurrentIndex(1)
+    assert tb.current_model_group() == "local"
+
+
+def test_current_model_group_returns_none_for_placeholder(qapp) -> None:  # noqa: ANN001
+    """检测失败状态（占位项）current_model_group 返回 None。"""
+    from q_agent.ui.toolbar import Toolbar
+
+    tb = Toolbar()
+    tb._on_refresh_failed("boom")
+    assert tb.current_model_group() is None
+
+
+def test_current_model_group_returns_none_for_header(qapp) -> None:  # noqa: ANN001
+    """选中 header（disabled）→ current_model_group 返回 None。"""
+    from q_agent.ui.toolbar import Toolbar
+
+    tb = Toolbar()
+    tb._on_models_found([_entry("qwen2.5:7b")])
+    tb.model_combo.setCurrentIndex(0)  # 本地 header
+    assert tb.current_model_group() is None

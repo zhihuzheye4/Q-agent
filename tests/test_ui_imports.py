@@ -119,73 +119,180 @@ def test_sidebar_tab_switches_stack(qapp) -> None:  # noqa: ANN001
         assert w.stack.currentIndex() == i, f"侧边栏 {i} 未正确切换 stack"
 
 
-def test_chat_page_send_echos(qapp) -> None:  # noqa: ANN001
-    """对话 tab：发送按钮把输入文本 echo 到消息流（含模型名标签）。"""
+def test_chat_page_send_appends_user_and_pending_ai(qapp, monkeypatch) -> None:  # noqa: ANN001
+    """对话 tab：发送按钮触发 ChatWorker，追加 user 消息 + pending AI 气泡（不污染历史）。"""
     from q_agent.ui.main_window import MainWindow
+
+    class _SignalStub:
+        def __init__(self) -> None:
+            self._slots: list = []
+
+        def connect(self, slot: object) -> None:
+            self._slots.append(slot)
+
+        def emit(self, *args: object) -> None:
+            for s in self._slots:
+                s(*args)
+
+    class FakeWorker:
+        chunk_received = _SignalStub()
+        chat_failed = _SignalStub()
+        chat_done = _SignalStub()
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr("q_agent.ui.pages.chat_page.ChatWorker", FakeWorker)
 
     w = MainWindow()
     chat = w.chat_page
+    chat.set_group_provider(lambda: "local")
     initial = len(chat._messages)
     chat.input.setPlainText("测试消息")
     chat._on_send_clicked()
-    assert len(chat._messages) == initial + 2, "应追加 user + ai 各一条"
-    # _messages 元组现在是 (role, text, model_name)
-    assert chat._messages[-2][0] == "user"
-    assert chat._messages[-2][1] == "测试消息"
-    assert chat._messages[-1][0] == "ai"
-    assert "测试消息" in chat._messages[-1][1]
+    # 仅 user 消息入历史（pending AI 气泡 append_to_history=False）
+    assert len(chat._messages) == initial + 1, "应仅追加 user 一条（AI 等 chat_done）"
+    assert chat._messages[-1] == ("user", "测试消息", None)
     assert chat.input.toPlainText() == "", "发送后输入框应清空"
 
 
 def test_chat_page_send_disabled_on_empty(qapp) -> None:  # noqa: ANN001
-    """输入框为空时发送按钮 disabled。"""
+    """输入框为空时发送按钮 disabled；有内容 + local 分组时启用。"""
     from q_agent.ui.main_window import MainWindow
 
     w = MainWindow()
-    assert not w.chat_page.send_btn.isEnabled(), "空输入框应 disabled 发送按钮"
+    # 默认未选模型 → group=None → disabled
+    assert not w.chat_page.send_btn.isEnabled(), "未选模型应 disabled 发送按钮"
+    w.chat_page.set_group_provider(lambda: "local")
     w.chat_page.input.setPlainText("有内容")
-    assert w.chat_page.send_btn.isEnabled(), "有内容应启用发送按钮"
+    w.chat_page.update_send_enabled("local")
+    assert w.chat_page.send_btn.isEnabled(), "local 分组 + 有内容应启用发送按钮"
     w.chat_page.input.clear()
+    w.chat_page.update_send_enabled("local")
     assert not w.chat_page.send_btn.isEnabled(), "清空后应再次 disabled"
 
 
-def test_chat_page_ai_bubble_includes_model_name(qapp) -> None:  # noqa: ANN001
+def test_chat_page_ai_bubble_includes_model_name(qapp, monkeypatch) -> None:  # noqa: ANN001
     """AI 气泡 _messages 元组含模型名，model_provider 返回真模型名时记录到元组。"""
     from q_agent.ui.pages.chat_page import ChatPage
 
+    class _SignalStub:
+        def __init__(self) -> None:
+            self._slots: list = []
+
+        def connect(self, slot: object) -> None:
+            self._slots.append(slot)
+
+        def emit(self, *args: object) -> None:
+            for s in self._slots:
+                s(*args)
+
+    class FakeWorker:
+        chunk_received = _SignalStub()
+        chat_failed = _SignalStub()
+        chat_done = _SignalStub()
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr("q_agent.ui.pages.chat_page.ChatWorker", FakeWorker)
+
     chat = ChatPage()
     chat.set_model_provider(lambda: "qwen2.5:7b")
+    chat.set_group_provider(lambda: "local")
     chat.input.setPlainText("测试")
     chat._on_send_clicked()
-    # 最后一条是 AI 消息，元组 (role, text, model_name)
+    # 模拟 ChatWorker 完成：完整回复入历史
+    chat._pending_text = "完整回复"
+    chat._pending_model_name = "qwen2.5:7b"
+    chat._on_chat_done()
     last = chat._messages[-1]
     assert last[0] == "ai"
     assert last[2] == "qwen2.5:7b", f"AI 消息元组应含模型名，实际：{last}"
 
 
-def test_chat_page_ai_bubble_uses_placeholder_when_no_model(qapp) -> None:  # noqa: ANN001
+def test_chat_page_ai_bubble_uses_placeholder_when_no_model(qapp, monkeypatch) -> None:  # noqa: ANN001
     """model_provider 返回 None 时 AI 气泡记录占位文本。"""
     from q_agent.ui.pages.chat_page import NO_MODEL_TEXT, ChatPage
 
+    class _SignalStub:
+        def __init__(self) -> None:
+            self._slots: list = []
+
+        def connect(self, slot: object) -> None:
+            self._slots.append(slot)
+
+        def emit(self, *args: object) -> None:
+            for s in self._slots:
+                s(*args)
+
+    class FakeWorker:
+        chunk_received = _SignalStub()
+        chat_failed = _SignalStub()
+        chat_done = _SignalStub()
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr("q_agent.ui.pages.chat_page.ChatWorker", FakeWorker)
+
     chat = ChatPage()
     # 不注入 model_provider → _current_model_name 返回 NO_MODEL_TEXT
+    chat.set_group_provider(lambda: "local")
     chat.input.setPlainText("测试")
     chat._on_send_clicked()
+    chat._pending_text = "回复"
+    chat._pending_model_name = NO_MODEL_TEXT
+    chat._on_chat_done()
     last = chat._messages[-1]
     assert last[0] == "ai"
     assert last[2] == NO_MODEL_TEXT
 
 
-def test_chat_page_user_bubble_has_no_model_name(qapp) -> None:  # noqa: ANN001
+def test_chat_page_user_bubble_has_no_model_name(qapp, monkeypatch) -> None:  # noqa: ANN001
     """用户气泡元组 model_name 字段为 None。"""
     from q_agent.ui.pages.chat_page import ChatPage
 
+    class _SignalStub:
+        def __init__(self) -> None:
+            self._slots: list = []
+
+        def connect(self, slot: object) -> None:
+            self._slots.append(slot)
+
+        def emit(self, *args: object) -> None:
+            for s in self._slots:
+                s(*args)
+
+    class FakeWorker:
+        chunk_received = _SignalStub()
+        chat_failed = _SignalStub()
+        chat_done = _SignalStub()
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr("q_agent.ui.pages.chat_page.ChatWorker", FakeWorker)
+
     chat = ChatPage()
     chat.set_model_provider(lambda: "qwen2.5:7b")
+    chat.set_group_provider(lambda: "local")
     chat.input.setPlainText("测试")
     chat._on_send_clicked()
-    # 倒数第二条是 user 消息
-    user_msg = chat._messages[-2]
+    # 最后一条是 user 消息（pending AI 不入历史）
+    user_msg = chat._messages[-1]
     assert user_msg[0] == "user"
     assert user_msg[2] is None, "用户气泡不应带模型名"
 

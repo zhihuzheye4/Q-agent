@@ -90,6 +90,14 @@ QLabel#MessageAI {{
     border-radius: 10px;
     border-top-left-radius: 2px;
 }}
+QLabel#MessageError {{
+    color: #DC2626;
+    background-color: #FEE2E2;
+    border: 1px solid #FCA5A5;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border-top-left-radius: 2px;
+}}
 QLabel#ModelLabel {{
     color: {COLOR_MUTED};
     font-size: 11px;

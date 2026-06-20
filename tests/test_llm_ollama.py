@@ -17,11 +17,12 @@ from __future__ import annotations
 
 import io
 import urllib.error
+from collections.abc import Iterator
 from unittest.mock import patch
 
 import pytest
 
-from q_agent.llm.ollama import ModelEntry, OllamaError, list_models
+from q_agent.llm.ollama import ModelEntry, OllamaClient, OllamaError, list_models
 
 
 class _FakeResponse:
@@ -188,3 +189,113 @@ def test_list_models_url_built_from_host() -> None:
     with patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=fake_urlopen):
         list_models(host="http://localhost:11434/")
     assert captured == ["http://localhost:11434/api/tags"]
+
+
+class _FakeStreamResponse:
+    """urlopen context manager 替身，支持行迭代（chat_stream 用）。"""
+
+    def __init__(self, lines: list[bytes]) -> None:
+        self._lines = lines
+
+    def __enter__(self) -> _FakeStreamResponse:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        pass
+
+    def __iter__(self) -> Iterator[bytes]:
+        yield from self._lines
+
+
+def test_chat_stream_happy() -> None:
+    """chat_stream 流式 yield chunks 的 message.content 拼接为完整文本。"""
+    lines = [
+        '{"model":"qwen2.5:7b","message":{"role":"assistant","content":"你好"},"done":false}\n'.encode(),
+        '{"model":"qwen2.5:7b","message":{"role":"assistant","content":"，世界"},"done":false}\n'.encode(),
+        b'{"model":"qwen2.5:7b","message":{"role":"assistant","content":""},"done":true}\n',
+    ]
+    with patch(
+        "q_agent.llm.ollama.urllib.request.urlopen",
+        return_value=_FakeStreamResponse(lines),
+    ):
+        client = OllamaClient(model="qwen2.5:7b")
+        chunks = list(client.chat_stream([{"role": "user", "content": "打招呼"}]))
+    assert chunks == ["你好", "，世界"]
+
+
+def test_chat_stream_stops_on_done() -> None:
+    """遇到 done=true 即返回，后续 chunk 不再 yield。"""
+    lines = [
+        b'{"message":{"content":"a"},"done":false}\n',
+        b'{"message":{"content":"b"},"done":true}\n',
+        b'{"message":{"content":"should_not_yield"},"done":false}\n',
+    ]
+    with patch(
+        "q_agent.llm.ollama.urllib.request.urlopen",
+        return_value=_FakeStreamResponse(lines),
+    ):
+        client = OllamaClient(model="m")
+        chunks = list(client.chat_stream([]))
+    assert chunks == ["a", "b"]
+
+
+def test_chat_stream_skips_invalid_json_line() -> None:
+    """单行 JSON 解析失败跳过，继续读后续 chunk（不致命）。"""
+    lines = [
+        b'{"message":{"content":"ok"}}\n',
+        b"not json\n",
+        b'{"message":{"content":"again"},"done":true}\n',
+    ]
+    with patch(
+        "q_agent.llm.ollama.urllib.request.urlopen",
+        return_value=_FakeStreamResponse(lines),
+    ):
+        client = OllamaClient(model="m")
+        chunks = list(client.chat_stream([]))
+    assert chunks == ["ok", "again"]
+
+
+def test_chat_stream_http_error() -> None:
+    """HTTPError → OllamaError 含状态码。"""
+    err = urllib.error.HTTPError(
+        url="http://localhost:11434/api/chat",
+        code=500,
+        msg="Internal Server Error",
+        hdrs=None,  # type: ignore[arg-type]
+        fp=None,
+    )
+    with (
+        patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=err),
+        pytest.raises(OllamaError) as exc,
+    ):
+        client = OllamaClient(model="m")
+        list(client.chat_stream([]))
+    assert "HTTP 500" in str(exc.value)
+
+
+def test_chat_stream_connection_refused() -> None:
+    """URLError（连接拒绝）→ OllamaError 含友好提示。"""
+    err = urllib.error.URLError(ConnectionRefusedError("Connection refused"))
+    with (
+        patch("q_agent.llm.ollama.urllib.request.urlopen", side_effect=err),
+        pytest.raises(OllamaError) as exc,
+    ):
+        client = OllamaClient(model="m")
+        list(client.chat_stream([]))
+    assert "无法连接" in str(exc.value) or "Ollama" in str(exc.value)
+
+
+def test_chat_full_via_stream() -> None:
+    """chat() = "".join(chat_stream())，同步返回完整文本。"""
+    lines = [
+        b'{"message":{"content":"Hello"},"done":false}\n',
+        b'{"message":{"content":", "},"done":false}\n',
+        b'{"message":{"content":"world!"},"done":true}\n',
+    ]
+    with patch(
+        "q_agent.llm.ollama.urllib.request.urlopen",
+        return_value=_FakeStreamResponse(lines),
+    ):
+        client = OllamaClient(model="m")
+        result = client.chat([{"role": "user", "content": "hi"}])
+    assert result == "Hello, world!"

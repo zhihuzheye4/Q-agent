@@ -93,8 +93,13 @@ class MainWindow(QMainWindow):
         self.toolbar = Toolbar(self, status_callback=self._show_status)
         self.addToolBar(self.toolbar)
 
-        # ChatPage 注入模型名提供器（绑定到 toolbar.current_model）
+        # ChatPage 注入模型名 + 分组提供器 + host
         self.chat_page.set_model_provider(self.toolbar.current_model)
+        self.chat_page.set_group_provider(self.toolbar.current_model_group)
+        self.chat_page.set_host("http://localhost:11434")
+
+        # toolbar 模型分组变化 → chat_page 更新发送按钮可用状态
+        self.toolbar.model_group_changed.connect(self.chat_page.update_send_enabled)
 
         # 菜单栏
         self.menu = MenuBar(self)
@@ -106,6 +111,13 @@ class MainWindow(QMainWindow):
         from PySide6.QtCore import QTimer
 
         QTimer.singleShot(100, self.toolbar.refresh_models)
+        # 检测完成后会触发 model_group_changed，但启动时下拉框初始占位 disabled，
+        # 主动调一次让 chat_page 初始禁用发送按钮（与 toolbar 初始状态对齐）
+        QTimer.singleShot(150, self._sync_send_enabled)
+
+    def _sync_send_enabled(self) -> None:
+        """启动后主动同步一次发送按钮状态（与 toolbar 当前选中项对齐）。"""
+        self.chat_page.update_send_enabled(self.toolbar.current_model_group())
 
     def _show_status(self, text: str) -> None:
         self.statusBar().showMessage(text, 5000)

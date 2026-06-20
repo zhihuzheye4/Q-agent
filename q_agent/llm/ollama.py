@@ -27,6 +27,7 @@ import json
 import socket
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
 from typing import Any, NamedTuple
 
 from q_agent.llm.base import LLMClient
@@ -124,8 +125,71 @@ class OllamaClient(LLMClient):
         self.host = host
 
     def chat(self, messages: list[dict[str, Any]]) -> str:
-        """多轮对话。待接 POST /api/chat（{"model":..., "messages":...}）。"""
-        raise NotImplementedError("Ollama chat 调用待实现，下一步用户提'接对话'需求后填充方法体")
+        """多轮对话同步返回完整文本。
+
+        内部用 chat_stream 流式读取后拼接。供编排层等不需要流式刷新的场景使用。
+        UI 流式刷新应直接用 chat_stream。
+        """
+        return "".join(self.chat_stream(messages))
+
+    def chat_stream(
+        self,
+        messages: list[dict[str, Any]],
+        timeout: float = 120.0,
+    ) -> Iterator[str]:
+        """多轮对话流式 yield 文本 chunk。
+
+        POST {host}/api/chat body={"model":..., "messages":..., "stream": true}。
+        响应是 NDJSON：每行一个 chunk JSON，含 message.content 字段。
+        done=true 的末行 content 通常为空，遇到即返回。
+
+        Args:
+            messages: Ollama 格式 [{"role": "user"/"assistant", "content": ...}]
+            timeout: 网络超时秒数，默认 120s（生成可能慢，比 list_models 的 2s 长）
+
+        Yields:
+            每个 chunk 的 message.content 文本片段
+
+        Raises:
+            OllamaError: 连接拒绝 / 超时 / HTTP 错误 / JSON 解析失败
+        """
+        url = self.host.rstrip("/") + "/api/chat"
+        payload = json.dumps({"model": self.model, "messages": messages, "stream": True}).encode(
+            "utf-8"
+        )
+        req = urllib.request.Request(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                for raw_line in resp:
+                    if not raw_line:
+                        continue
+                    try:
+                        chunk = json.loads(raw_line.decode("utf-8"))
+                    except json.JSONDecodeError:
+                        # 单行解析失败跳过，继续读后续 chunk（不致命）
+                        continue
+                    if not isinstance(chunk, dict):
+                        continue
+                    msg = chunk.get("message", {})
+                    if isinstance(msg, dict):
+                        content = msg.get("content", "")
+                        if isinstance(content, str) and content:
+                            yield content
+                    if chunk.get("done"):
+                        return
+        except urllib.error.HTTPError as e:
+            raise OllamaError(f"Ollama 返回 HTTP {e.code}：{e.reason}") from e
+        except urllib.error.URLError as e:
+            reason = e.reason
+            if isinstance(reason, socket.timeout) or "timed out" in str(reason).lower():
+                msg = f"连接 Ollama 超时（{timeout}s）：请确认服务运行于 {self.host}"
+                raise OllamaError(msg) from e
+            raise OllamaError(f"无法连接 Ollama（{self.host}）：{reason}。请确认服务已启动") from e
+        except TimeoutError as e:
+            msg = f"连接 Ollama 超时（{timeout}s）：请确认服务运行于 {self.host}"
+            raise OllamaError(msg) from e
 
     def complete(self, prompt: str) -> str:
         """单轮补全。待接 POST /api/generate。"""
