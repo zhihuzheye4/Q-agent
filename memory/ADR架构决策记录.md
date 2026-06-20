@@ -799,3 +799,47 @@ v0.0.12 把硬件监控塞进 sidebar 底部（QFrame 容器内嵌），v0.0.14 
 - 落实 ADR-027 贴纸式开发原则的第二个执行案例（首个为 v0.0.14 left panel 一行挂载）
 - 与 ADR-024（加载指示器）共享"独立 widget 文件"贴纸式模式
 
+
+---
+
+## ADR-030：新建对话/清空按钮接通实际行为（v0.0.16）
+
+**日期**：2026-06-20
+**状态**：生效
+
+### 背景
+
+v0.0.1 起 toolbar 左侧就有 new-chat / clear 两个图标按钮，v0.0.8 加 status_callback 占位回显"已点击：新建对话（活 UI 空壳，无实际行为）"。这是接口预留型待办——按钮 UI 早建好，行为没接。chat_page._clear_messages() 在 v0.0.9 已实现（被 model_selected 信号触发用于切换模型清空上下文），可直接复用。
+
+v0.0.16 用户提出审查三个候选（取消按钮/QSettings/新建清空按钮）是否会"把软件返回到之前状态"——审查后确认三个候选都是扩展公开接口而非侵入既有模块，与 v0.0.12 sidebar 容器化错误性质完全不同。
+
+### 决策
+
+1. **Toolbar 扩展 2 个信号**（纯增量扩展公开接口）：
+   - `new_chat_requested = Signal()`
+   - `clear_requested = Signal()`
+   - 类比 v0.0.9 已有 `model_released` 信号模式
+2. **_build_actions 改 triggered 目标**：new_chat/clear 的 triggered 从 `_status_callback("活 UI 空壳...")` 改为 `self.new_chat_requested.emit` / `self.clear_requested.emit`
+3. **MainWindow 加 2 行 connect**：`toolbar.new_chat_requested.connect(chat_page._clear_messages)` + `toolbar.clear_requested.connect(chat_page._clear_messages)`
+4. **chat_page._clear_messages 复用**：v0.0.9 已实现（清空消息流 + 清空 pending AI 气泡状态 + 清空 LoadingDots），零侵入
+
+### 取舍
+
+- **新建对话 vs 清空语义**：当前两个按钮行为都连 _clear_messages（清空消息流）。语义上"新建对话"未来可加更多初始化（如 session_id 重置/计数器清零），但当前实现两者行为一致——这是最小可工作版本，未来扩展只动 new_chat_requested 的连接目标，clear_requested 不动。
+- **两个独立信号 vs 合并一个 chat_cleared 信号**：分开两个信号更灵活——未来 new_chat 可加"显示初始问候"等额外行为，clear 保持纯清空。合并一个信号会让两个按钮锁死同行为。
+- **连接到 _clear_messages（私有方法）vs 加 public clear() 方法**：_clear_messages 已被 model_selected 信号槽连接（v0.0.9 模式），MainWindow 持有 chat_page 引用调用其方法是 Qt 信号槽常见模式，不需要为接入新按钮暴露 public API。
+
+### 后果
+
+- v0.0.16 起 toolbar 左侧"新建对话"/"清空"按钮有实际行为：清空当前对话消息流
+- 状态栏不再显示"活 UI 空壳"占位文案
+- chat_page._clear_messages 仍是 v0.0.9 实现，零修改
+- Toolbar 类继承/objectName/既有信号全不变，仅新增 2 信号——符合贴纸式原则
+- 工具栏第三个按钮"关于"仍保留 status_callback 占位（活 UI 空壳），未来若需要打开关于弹窗可同模式扩展 about_requested 信号
+
+### 关联
+
+- 接口预留型待办首例落地（v0.0.8 留 status_callback 占位 → v0.0.16 接通实际行为）
+- 落实 ADR-027 贴纸式原则的第三个执行案例（v0.0.14 left panel 挂载 + v0.0.15 独立窗口 + v0.0.16 toolbar 信号扩展）
+- 候选审查报告记录：取消按钮（ChatWorker.stop 接口已留 v0.0.8，待 v0.0.17+）/ QSettings（完全空白，需先出方案避免散弹式侵入三模块）
+

@@ -87,9 +87,9 @@ class MenuBar:
         QMessageBox.information(
             self.window,
             "关于 Q-agent",
-            "Q-agent v0.0.15\n\n"
+            "Q-agent v0.0.16\n\n"
             "类似 Claude Code 的桌面端 AI 工具\n"
             "对接本地 LLM\n\n"
-            "当前：活 UI 空壳 + 硬件监控独立窗口\n"
+            "当前：活 UI 空壳 + 硬件监控独立窗口 + 新建/清空按钮接通\n"
             "界面可跳转、按钮可按，核心功能逐步填充中。",
         )
