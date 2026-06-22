@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Q-agent 编排调度层架构设计报告</title>
+<style>
+  :root {
+    --bg: #0F172A;
+    --panel: #1E293B;
+    --panel-2: #273449;
+    --text: #E2E8F0;
+    --muted: #94A3B8;
+    --accent: #3B82F6;
+    --accent-2: #22C55E;
+    --warn: #F97316;
+    --danger: #EF4444;
+    --border: #334155;
+    --code-bg: #0B1120;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+    line-height: 1.75;
+    padding: 40px 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid var(--accent);
+  }
+  header h1 {
+    font-size: 30px;
+    margin: 0 0 10px;
+    color: var(--accent);
+  }
+  header .meta {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  header .meta b { color: var(--accent-2); }
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 28px;
+    margin-bottom: 32px;
+  }
+  .toc h2 {
+    margin: 0 0 12px;
+    color: var(--accent);
+    font-size: 18px;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 24px;
+    columns: 2;
+    column-gap: 40px;
+  }
+  .toc li {
+    margin-bottom: 4px;
+    font-size: 14px;
+    break-inside: avoid;
+  }
+  .toc a {
+    color: var(--text);
+    text-decoration: none;
+  }
+  .toc a:hover { color: var(--accent); }
+  section {
+    margin-bottom: 28px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .section-title {
+    padding: 14px 24px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    font-size: 18px;
+    font-weight: 700;
+    color: #F8FAFC;
+  }
+  .section-title .num {
+    color: var(--accent);
+    margin-right: 8px;
+  }
+  .body { padding: 18px 28px; }
+  .body p { margin: 0 0 12px; }
+  .body h3 {
+    color: var(--accent-2);
+    margin: 20px 0 10px;
+    font-size: 16px;
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 4px;
+  }
+  .body h4 {
+    color: var(--warn);
+    margin: 16px 0 8px;
+    font-size: 14px;
+  }
+  .body code {
+    background: var(--code-bg);
+    color: #A5F3FC;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "Consolas", "Cascadia Code", monospace;
+    font-size: 13px;
+  }
+  .body pre {
+    background: var(--code-bg);
+    color: #E2E8F0;
+    padding: 14px 18px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    overflow-x: auto;
+    font-family: "Consolas", "Cascadia Code", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 10px 0;
+  }
+  .body pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+  }
+  .body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  .body th, .body td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  .body th {
+    background: var(--panel-2);
+    color: var(--accent);
+  }
+  .body tr:nth-child(even) td {
+    background: rgba(15, 23, 42, 0.3);
+  }
+  .body ul, .body ol {
+    margin: 8px 0;
+    padding-left: 24px;
+  }
+  .body li {
+    margin-bottom: 6px;
+  }
+  .body strong { color: var(--accent-2); }
+  .body em { color: var(--warn); font-style: normal; }
+  .callout {
+    background: rgba(59, 130, 246, 0.1);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout-warn {
+    background: rgba(249, 115, 22, 0.1);
+    border-left-color: var(--warn);
+  }
+  .callout-danger {
+    background: rgba(239, 68, 68, 0.1);
+    border-left-color: var(--danger);
+  }
+  .callout-ok {
+    background: rgba(34, 197, 94, 0.1);
+    border-left-color: var(--accent-2);
+  }
+  .callout-title {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .callout-warn .callout-title { color: var(--warn); }
+  .callout-danger .callout-title { color: var(--danger); }
+  .callout-ok .callout-title { color: var(--accent-2); }
+  .term-list {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 18px;
+    margin: 10px 0;
+  }
+  .term-list dl {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 6px 16px;
+    margin: 0;
+  }
+  .term-list dt {
+    color: #A5F3FC;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+  }
+  .term-list dd {
+    margin: 0;
+    font-size: 13px;
+  }
+  .ascii-diagram {
+    background: var(--code-bg);
+    color: #E2E8F0;
+    padding: 16px 20px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-family: "Consolas", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 12px 0;
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Q-agent 编排调度层架构设计报告</h1>
+  <div class="meta">
+    基于对 <b>Claude Code</b> / <b>OpenClaw</b> / <b>Codex</b> / <b>OpenCode</b> 四个主流 AI 工具编排层的拆解 ｜
+    生成日期：2026-06-22 ｜
+    目标版本：v0.0.18 起 ｜
+    调研报告：market/05-拆解报告/01~04
+  </div>
+</header>
+
+<div class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#s1">调研背景与方法</a></li>
+    <li><a href="#s2">四项目编排层共性发现</a></li>
+    <li><a href="#s3">Q-agent 约束过滤</a></li>
+    <li><a href="#s4">设计原则</a></li>
+    <li><a href="#s5">模块划分</a></li>
+    <li><a href="#s6">核心数据类型</a></li>
+    <li><a href="#s7">主循环设计（Orchestrator）</a></li>
+    <li><a href="#s8">Planner 决策：不做独立 Planner</a></li>
+    <li><a href="#s9">工具调用循环</a></li>
+    <li><a href="#s10">上下文管理（分级压缩）</a></li>
+    <li><a href="#s11">错误处理与降级</a></li>
+    <li><a href="#s12">循环终止条件</a></li>
+    <li><a href="#s13">多 Agent 委派（接口预留）</a></li>
+    <li><a href="#s14">与其他层的边界</a></li>
+    <li><a href="#s15">实施路线（三步走）</a></li>
+    <li><a href="#s16">借鉴对照表</a></li>
+    <li><a href="#s17">术语表</a></li>
+  </ol>
+</div>
+
+<!-- ============================== 1 ============================== -->
+<section id="s1">
+<div class="section-title"><span class="num">一、</span>调研背景与方法</div>
+<div class="body">
+
+<p>Q-agent 当前 v0.0.17 已落地对话/交互层与 LLM 抽象层（本地 Ollama 部分），但编排/规划层（orchestrator/planner，即编排器/规划器）、技能体系、工具调用层、运行期记忆仍是 stub（占位空壳）。软件实质仍是 Ollama 聊天前端，未实现"让 LLM 指令被软件理解并执行"这一核心定位。</p>
+
+<p>本次调研目的：在设计 Q-agent 编排层前，参考当前主流 AI 工具的实际实现，避免闭门造车。调研对象为四个开源或可获取源码的 AI 工具：</p>
+
+<table>
+  <thead>
+    <tr><th>项目</th><th>仓库</th><th>语言</th><th>定位</th><th>编排层核心位置</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Claude Code</td><td>NonSmiIe/claude-code-source-code-full（反编译镜像）</td><td>TypeScript</td><td>终端 AI 编程助手</td><td>src/QueryEngine.ts + src/query.ts + src/coordinator/</td></tr>
+    <tr><td>OpenClaw</td><td>openclaw/openclaw</td><td>TypeScript 91%</td><td>个人 AI 助手（多通道）</td><td>src/agents/embedded-agent-runner/run.ts + src/context-engine/</td></tr>
+    <tr><td>Codex</td><td>openai/codex</td><td>Rust 96%</td><td>终端轻量 coding agent</td><td>codex-rs/core/src/tools/orchestrator.rs + codex-rs/core/src/session/turn.rs</td></tr>
+    <tr><td>OpenCode</td><td>sst/opencode</td><td>TypeScript 68%</td><td>开源 AI coding agent</td><td>packages/opencode/src/session/prompt.ts + processor.ts</td></tr>
+  </tbody>
+</table>
+
+<p>调研方法：</p>
+<ol>
+  <li>sparse-checkout（稀疏检出）只拉各项目编排层相关目录，避免完整 clone 大仓占用磁盘</li>
+  <li>派 4 个子 agent 并行拆解，每个 agent 负责一个项目，按统一 12 项维度产出拆解报告</li>
+  <li>本报告基于 4 份拆解报告（共 125KB / 1131 行），结合 Q-agent 约束（Python + 本地 LLM + 永不沙箱 + 单人桌面应用）筛选借鉴清单，去其糟粕，取其精华</li>
+</ol>
+
+<p>四个项目源码已落地至 <code>G:/agent/市场调研/01-ClaudeCode/</code> 至 <code>04-OpenCode/</code>，拆解报告存于 <code>05-拆解报告/</code>，本报告存于 <code>06-架构设计/</code>。</p>
+
+</div>
+</section>
+
+<!-- ============================== 2 ============================== -->
+<section id="s2">
+<div class="section-title"><span class="num">二、</span>四项目编排层共性发现</div>
+<div class="body">
+
+<p>四个项目语言不同、定位不同、规模不同，但编排层呈现五个共性。这些共性是行业共识，Q-agent 应该遵循。</p>
+
+<h3>共性 1：无独立 Planner 模块</h3>
+<p>四个项目都没有一个叫 <code>planner</code> 的独立模块。意图解析全部由 LLM 的 tool_calling（工具调用）能力承担——LLM 直接在响应中输出结构化的 <code>tool_use</code>（工具使用块）JSON，Orchestrator 直接消费。</p>
+<ul>
+  <li>Claude Code：<code>QueryEngine.ts</code> 内部 <code>queryLoop()</code> 直接拿 LLM 输出的 <code>tool_use</code> 块当意图，<code>needsFollowUp</code>（需后续轮）是唯一循环续跑信号</li>
+  <li>OpenClaw：靠 LLM tool-calling + 多层 stream wrapper（流包装器）清洗非标准输出，没有 Planner</li>
+  <li>Codex：<code>ToolRouter::build_tool_call</code>（router.rs:113-160）+ plan mode 的 <code>PlanModeStreamState</code>（turn.rs:1374-1490）共担规划职责，不是独立模块</li>
+  <li>OpenCode：编排意图以 <code>SubtaskPart</code>（子任务块）/ <code>CompactionPart</code>（压缩块）形式嵌入消息流，由 LLM tool-call + 用户 @mention + overflow 检测共同产生</li>
+</ul>
+
+<div class="callout callout-ok">
+  <div class="callout-title">对 Q-agent 的直接启示</div>
+  不要做独立 Planner 模块。让 LLM 直接输出 tool_call，Orchestrator 直接消费。这是最简且最符合行业实践的做法。
+</div>
+
+<h3>共性 2：主循环都是 while-true + LLM 调用 + 工具执行 + 结果回喂 + 终止判定</h3>
+<p>四个项目的 Orchestrator 主循环结构高度一致：</p>
+
+<pre><code>while true:
+    if should_stop(state): break        # 终止判定
+    response = llm.call(messages, tools) # LLM 调用
+    assistant_msg, tool_calls = parse(response)
+    messages.append(assistant_msg)
+    if not tool_calls: break             # LLM 自然停止
+    for tc in tool_calls:
+        result = execute_tool(tc)        # 工具执行
+        messages.append(tool_result_msg(tc.id, result))  # 结果回喂
+</code></pre>
+
+<p>差异只在终止条件的精细度、工具执行的并发度、错误回喂的格式。Q-agent 直接照搬这个骨架。</p>
+
+<h3>共性 3：上下文压缩是多级的</h3>
+<p>四个项目都不让消息历史无限增长，都有一套压缩机制。复杂度差异极大：</p>
+
+<table>
+  <thead>
+    <tr><th>项目</th><th>压缩级别</th><th>触发条件</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Claude Code</td><td>6 级（toolResultBudget → snip → microcompact → contextCollapse → autocompact → reactiveCompact）</td><td>token 预算 + 413 错误</td></tr>
+    <tr><td>Codex</td><td>2 级（auto-compaction + manual）</td><td>90% 上下文窗口</td></tr>
+    <tr><td>OpenCode</td><td>1 级（SessionCompaction）+ tail 保留</td><td>ctx.needsCompaction</td></tr>
+    <tr><td>OpenClaw</td><td>14+ 种 retry 触发条件含多种 compaction</td><td>timeout / overflow / silent error 等</td></tr>
+  </tbody>
+</table>
+
+<p>Claude Code 的 6 级压缩是 Anthropic 服务端复杂场景的产物，对 Q-agent 单人桌面应用是过度设计。Q-agent 用 2 级即可：简单截断 + 摘要压缩。</p>
+
+<h3>共性 4：错误不抛出循环，转 tool_result 块回喂</h3>
+<p>四个项目都不在工具失败时抛异常中断循环，而是把错误转成 <code>tool_use_error</code>（工具使用错误）块作为 <code>tool_result</code>（工具结果）回喂 LLM，让 LLM 自己决定下一步（重试 / 换工具 / 放弃）。</p>
+<ul>
+  <li>Claude Code：<code>tool_use_error</code> 块回喂 + <code>yield synthetic assistant message</code>（产出合成助手消息）应对 API 错误</li>
+  <li>Codex：sandbox（沙箱）denial 转结果回喂 + GuardianRejectionCircuitBreaker（审查者拒绝熔断器）</li>
+  <li>OpenCode：Effect.retry（重试）+ SessionRetry.policy 处理 5xx / rate limit（速率限制）</li>
+  <li>OpenClaw：14+ 种 retry 触发条件分类处理</li>
+</ul>
+
+<div class="callout callout-ok">
+  <div class="callout-title">对 Q-agent 的直接启示</div>
+  工具失败不抛异常，生成 <code>ToolResult(error=msg)</code> 回喂 LLM。LLM API 失败时产出合成 assistant 消息告知出错 + 终止当前 turn（单轮）。
+</div>
+
+<h3>共性 5：终止条件是多 bool / 多 enum 组合</h3>
+<p>没有一个项目用单一条件终止循环。终止靠多个布尔/枚举组合表达：</p>
+<ul>
+  <li>Claude Code：11 种终止原因集中在 <code>Terminal</code>（终止态）类型</li>
+  <li>Codex：<code>needs_follow_up</code> + <code>token_limit_reached</code> + <code>has_pending_input</code> 三 bool 组合</li>
+  <li>OpenCode：<code>MAX_STEPS_PROMPT</code>（步数软截止）+ <code>doom_loop</code>（死循环检测，连续 3 次相同工具相同输入）+ <code>ctx.needsCompaction</code></li>
+  <li>OpenClaw：分级 retry + idle-timeout breaker（空闲超时熔断）+ tool loop detection（工具循环检测）</li>
+</ul>
+
+<p>Q-agent 应采用多 bool 组合：<code>user_cancel</code>（用户取消）+ <code>llm_stopped</code>（LLM 自然停止）+ <code>max_steps_reached</code>（达步数上限）+ <code>consecutive_errors</code>（连续错误超阈值）+ <code>context_overflow</code>（上下文溢出）。</p>
+
+</div>
+</section>
+
+<!-- ============================== 3 ============================== -->
+<section id="s3">
+<div class="section-title"><span class="num">三、</span>Q-agent 约束过滤</div>
+<div class="body">
+
+<p>共性已明，但不能照抄。Q-agent 有自身约束，必须按约束过滤借鉴清单。</p>
+
+<h3>Q-agent 特殊性</h3>
+<ol>
+  <li><strong>永不沙箱</strong>（CLAUDE.md 第五节）：Codex 的 sandboxing（沙箱）/ guardian（审查者）/ execpolicy（执行策略）整个守护链不适用</li>
+  <li><strong>本地 LLM 优先</strong>：OpenCode 的 20+ provider 抽象层 + OpenClaw 的多 backend（CLI/ACP/embedded）不适用，Q-agent 只需 Ollama + 云端 stub</li>
+  <li><strong>单人桌面应用</strong>：OpenClaw 的多通道（WhatsApp/Telegram/Slack 等）+ gateway（网关）+ daemon（守护进程）+ cron（定时任务）+ multi-agent routing（多代理路由）全部不适用</li>
+  <li><strong>Python 实现</strong>：Codex 的 Rust 强类型 trait + OpenCode 的 Effect 框架 + Claude Code 的 TypeScript 都不适用，需要 Python 等价物（dataclass + typing.Protocol）</li>
+  <li><strong>贴纸式开发原则</strong>（CLAUDE.md 第二十一节）：编排层要做成独立模块，不侵入既有 UI/LLM/工具层</li>
+  <li><strong>零第三方依赖起步</strong>：不引入 Effect / SQLite / pydantic 等运行时依赖，只用标准库</li>
+</ol>
+
+<h3>借鉴清单（取其精华）</h3>
+<table>
+  <thead>
+    <tr><th>设计点</th><th>来源</th><th>采纳理由</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>while-true 主循环骨架</td><td>四项目共识</td><td>行业通用模式，简单可靠</td></tr>
+    <tr><td>无独立 Planner，LLM 直接 tool_call</td><td>四项目共识</td><td>简化架构，符合 Q-agent 单 Ollama 场景</td></tr>
+    <tr><td>工具失败转 tool_result 回喂</td><td>Claude Code / Codex</td><td>错误不中断循环，让 LLM 自决策</td></tr>
+    <tr><td>LLM API 失败产出合成 assistant 消息</td><td>Claude Code</td><td>用户可见错误 + 当前 turn 终止</td></tr>
+    <tr><td>多 bool 终止组合</td><td>Codex 三 bool 模式</td><td>比单一条件更灵活</td></tr>
+    <tr><td>doom_loop 检测（连续 N 次相同工具相同输入）</td><td>OpenCode</td><td>本地 LLM 容易陷入循环，必须有防护</td></tr>
+    <tr><td>MAX_STEPS 软截止 + prefill（预填充）提示收尾</td><td>OpenCode</td><td>比硬中断更优雅</td></tr>
+    <tr><td>上下文压缩分块 + tail 保留最近 N 轮</td><td>OpenCode + Claude Code microcompact</td><td>避免压缩丢失最近上下文</td></tr>
+    <tr><td>多 agent 委派以 task-notification（任务通知）注入主上下文</td><td>Claude Code AgentTool</td><td>接口预留，未来扩展多 agent 不破坏架构</td></tr>
+    <tr><td>state（状态机）整体覆写防跨迭代泄漏</td><td>Claude Code</td><td>Python 实现简单，避免状态污染</td></tr>
+  </tbody>
+</table>
+
+<h3>不采纳清单（去其糟粕）</h3>
+<table>
+  <thead>
+    <tr><th>设计点</th><th>来源</th><th>不采纳理由</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>sandbox / guardian / execpolicy 守护链</td><td>Codex</td><td>违反 Q-agent 永不沙箱原则</td></tr>
+    <tr><td>6 级压缩流水线</td><td>Claude Code</td><td>单人桌面应用过度设计，2 级够用</td></tr>
+    <tr><td>20+ provider 抽象层</td><td>OpenCode</td><td>Q-agent 本地 LLM 优先，Ollama + cloud stub 即可</td></tr>
+    <tr><td>Effect 框架 + SQLite 持久化</td><td>OpenCode</td><td>引入第三方依赖，违反零依赖起步原则</td></tr>
+    <tr><td>HTTP server / ACP / sync / share / account</td><td>OpenCode</td><td>单人桌面应用无需多用户基础设施</td></tr>
+    <tr><td>多通道 messaging + gateway + daemon</td><td>OpenClaw</td><td>Q-agent 不做消息平台</td></tr>
+    <tr><td>CLI backend / ACP runtime</td><td>OpenClaw</td><td>Q-agent 不嵌套其他 CLI</td></tr>
+    <tr><td>plugin SDK / hooks 全链钩子</td><td>OpenCode / Claude Code</td><td>Q-agent 无插件机制（用户已明确）</td></tr>
+    <tr><td>rollout（执行轨迹持久化）sqlite</td><td>Codex</td><td>Q-agent 关闭即清空，不持久化</td></tr>
+    <tr><td>stream wrapper 多层清洗</td><td>OpenClaw</td><td>本地 Ollama 输出规范，不需要清洗非标准格式</td></tr>
+    <tr><td>agent-graph-store / agent-identity 独立 crate</td><td>Codex</td><td>多 agent 委派时用简单字典即可</td></tr>
+    <tr><td>coordinator 模式 + 多 agent 递归 query</td><td>Claude Code</td><td>未来接口预留，v0.0.18 不实现</td></tr>
+    <tr><td>14+ 种 retry 触发条件分类</td><td>OpenClaw</td><td>Q-agent 用 3-5 种分类即可</td></tr>
+  </tbody>
+</table>
+
+</div>
+</section>
+
+<!-- ============================== 4 ============================== -->
+<section id="s4">
+<div class="section-title"><span class="num">四、</span>设计原则</div>
+<div class="body">
+
+<ol>
+  <li><strong>LLM 直接输出意图</strong>：不做独立 Planner 模块。LLM 通过 Ollama tool_calling 直接输出结构化工具调用，Orchestrator 直接消费</li>
+  <li><strong>错误不抛出循环</strong>：工具失败转 <code>ToolResult(error=...)</code> 回喂 LLM；LLM 失败产出合成 assistant 消息告知 + 终止当前 turn</li>
+  <li><strong>状态整体覆写</strong>：每次循环迭代结束 <code>state = TurnState(**next_fields)</code> 整体替换，防跨迭代状态泄漏（借鉴 Claude Code）</li>
+  <li><strong>多 bool 终止组合</strong>：循环终止靠多个布尔值组合判断，不靠单一条件</li>
+  <li><strong>软截止优先于硬中断</strong>：达 max_steps 时先给 LLM 一条 prefill 提示"请总结收尾"，让 LLM 自然收尾；连续错误超阈值才硬中断</li>
+  <li><strong>本地 LLM 防循环</strong>：doom_loop 检测连续 3 次相同工具相同输入强制终止（借鉴 OpenCode）</li>
+  <li><strong>贴纸式挂载</strong>：编排层独立模块，不侵入既有 UI/LLM/工具层，通过信号槽或回调连接</li>
+  <li><strong>接口预留多 agent</strong>：当前只做单 agent，但 ToolCall 数据类型预留 <code>delegate_agent</code>（委派代理）种，未来扩展不破坏架构</li>
+  <li><strong>零第三方依赖</strong>：编排层只用标准库（dataclass + typing.Protocol + threading），不引入 pydantic / Effect / asyncio 框架</li>
+  <li><strong>可测试性优先</strong>：每个模块可独立单测，Orchestrator 用 mock LLM + mock tool 测试，不依赖真实 Ollama</li>
+</ol>
+
+</div>
+</section>
+
+<!-- ============================== 5 ============================== -->
+<section id="s5">
+<div class="section-title"><span class="num">五、</span>模块划分</div>
+<div class="body">
+
+<p>编排层位于 <code>q_agent/orchestrator/</code> 下，分为 5 个模块。所有模块独立，对外通过 <code>__init__.py</code> 暴露最小接口。</p>
+
+<div class="ascii-diagram">q_agent/orchestrator/
+├── __init__.py        # 暴露 Orchestrator + 公开类型
+├── types.py           # 数据类型（Message/ToolCall/ToolResult/TurnState/TerminationReason）
+├── loop.py            # Orchestrator 主循环（run_turn 函数）
+├── dispatcher.py     # LLM 输出解析 + 工具调用调度
+├── context.py         # 上下文管理（历史存储 + 压缩）
+└── turn.py            # 单轮 turn 抽象 + 状态机</div>
+
+<h3>模块职责</h3>
+<table>
+  <thead>
+    <tr><th>模块</th><th>职责</th><th>对外接口</th><th>依赖</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>types.py</td><td>纯数据定义，无逻辑</td><td>Message / ToolCall / ToolResult / TurnState / TerminationReason</td><td>无（仅标准库 dataclass）</td></tr>
+    <tr><td>turn.py</td><td>单轮 turn 状态机抽象</td><td>Turn 类</td><td>types.py</td></tr>
+    <tr><td>dispatcher.py</td><td>解析 LLM 输出 → ToolCall 列表；调度工具执行</td><td>parse_response() / execute_tool_calls()</td><td>types.py + q_agent.tools.executor</td></tr>
+    <tr><td>context.py</td><td>管理消息历史 + token 计数 + 分级压缩</td><td>ContextManager 类</td><td>types.py</td></tr>
+    <tr><td>loop.py</td><td>主循环 while-true + 终止判定</td><td>Orchestrator 类 / run_turn()</td><td>types.py + turn.py + dispatcher.py + context.py + q_agent.llm.LLMClient</td></tr>
+  </tbody>
+</table>
+
+<h3>依赖关系（自底向上）</h3>
+
+<div class="ascii-diagram">         ┌─────────────────────────────────┐
+         │           loop.py                │
+         │      (Orchestrator 主循环)        │
+         └────┬──────────┬─────────┬────────┘
+              │          │         │
+              ▼          ▼         ▼
+        ┌─────────┐ ┌──────────┐ ┌───────────┐
+        │ turn.py │ │dispatcher│ │ context.py│
+        │ (状态机)│ │  (调度)  │ │  (上下文) │
+        └────┬────┘ └─────┬────┘ └─────┬─────┘
+             │             │            │
+             └──────┬──────┴────────────┘
+                    ▼
+              ┌──────────┐
+              │ types.py │
+              │ (数据类型)│
+              └──────────┘
+
+  外部依赖（被引用，不反向依赖）：
+    q_agent.llm.LLMClient          (loop 调用)
+    q_agent.tools.executor         (dispatcher 调用)
+    q_agent.tools.safety           (dispatcher 调用)
+    q_agent.memory (运行期记忆 stub) (context 引用，v0.0.18 暂不接)</div>
+
+<div class="callout callout-warn">
+  <div class="callout-title">贴纸式约束</div>
+  编排层模块只允许引用 UI/LLM/工具层的公开接口，不允许被这些层引用。Orchestrator 通过信号槽或回调把 turn 进度回传 UI（类似 ChatWorker 的 chunk/done 信号模式）。任何对既有 UI/LLM/工具模块的类继承/objectName/公开接口改动 = 架构级改动，必须先出方案让用户否决。
+</div>
+
+</div>
+</section>
+
+<!-- ============================== 6 ============================== -->
+<section id="s6">
+<div class="section-title"><span class="num">六、</span>核心数据类型</div>
+<div class="body">
+
+<p>所有数据类型放 <code>types.py</code>，用 <code>@dataclass</code>（数据类）定义，零第三方依赖。</p>
+
+<pre><code># q_agent/orchestrator/types.py
+from __future__ import annotations
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Literal, Optional
+
+
+class Role(str, Enum):
+    """消息角色"""
+    SYSTEM = "system"      # 系统提示
+    USER = "user"          # 用户消息
+    ASSISTANT = "assistant"  # 助手消息
+    TOOL = "tool"          # 工具结果消息
+
+
+@dataclass
+class ToolCall:
+    """工具调用意图（来自 LLM 输出的 tool_use 块）"""
+    id: str                        # 工具调用 ID（LLM 生成，用于配对 tool_result）
+    name: str                      # 工具名（如 read_file / shell_exec）
+    arguments: dict[str, object]   # 工具参数（LLM 输出的 JSON 解析结果）
+
+
+@dataclass
+class ToolResult:
+    """工具执行结果（回喂给 LLM 作为 tool_result 块）"""
+    call_id: str                   # 对应 ToolCall.id
+    content: str = ""               # 成功内容
+    error: Optional[str] = None     # 失败时的错误信息（二选一）
+
+
+@dataclass
+class Message:
+    """统一消息结构（送入 LLM 和存入历史）"""
+    role: Role
+    content: str = ""                              # 文本内容（user/assistant/system）
+    tool_calls: list[ToolCall] = field(default_factory=list)  # assistant 触发的工具调用
+    tool_call_id: Optional[str] = None            # tool 角色消息对应的 ToolCall.id
+    is_synthetic: bool = False                    # 合成消息标记（错误时产出，非 LLM 真实输出）
+
+
+class TerminationReason(str, Enum):
+    """循环终止原因"""
+    LLM_STOPPED = "llm_stopped"               # LLM 自然停止（无 tool_call 输出）
+    USER_CANCEL = "user_cancel"               # 用户取消
+    MAX_STEPS_REACHED = "max_steps_reached"    # 达到最大步数（软截止后仍不收尾）
+    CONSECUTIVE_ERRORS = "consecutive_errors"  # 连续错误超阈值
+    CONTEXT_OVERFLOW = "context_overflow"      # 上下文溢出无法压缩
+    DOOM_LOOP = "doom_loop"                    # 死循环检测（连续 N 次相同工具相同输入）
+    LLM_FAILED = "llm_failed"                 # LLM API 多次重试失败
+
+
+@dataclass
+class TurnState:
+    """单轮状态（每次循环迭代结束整体覆写，防跨迭代泄漏）"""
+    messages: list[Message]                   # 当前消息历史（含本轮新增）
+    steps: int = 0                             # 已执行步数
+    consecutive_errors: int = 0                # 连续错误计数
+    last_tool_signature: Optional[tuple[str, str]] = None  # (tool_name, args_json) 用于 doom_loop 检测
+    doom_loop_count: int = 0                  # 连续相同工具调用计数
+    terminated: bool = False                   # 是否已终止
+    termination_reason: Optional[TerminationReason] = None  # 终止原因
+
+
+@dataclass
+class TurnResult:
+    """单轮结果（run_turn 返回）"""
+    messages: list[Message]                   # 最终消息历史
+    final_assistant_text: str                 # 最终 assistant 文本回复
+    termination_reason: TerminationReason      # 终止原因
+    steps_executed: int                        # 实际执行步数
+    tool_calls_made: list[ToolCall]            # 本轮所有工具调用
+</code></pre>
+
+<div class="callout">
+  <div class="callout-title">设计要点</div>
+  <ul>
+    <li><code>TurnState</code>（单轮状态）每次迭代用 <code>state = TurnState(**next_fields)</code> 整体替换，防字段跨迭代泄漏（借鉴 Claude Code）</li>
+    <li><code>is_synthetic</code>（合成标记）标识非 LLM 真实输出的占位消息，UI 渲染时可用不同样式（如红色错误气泡）</li>
+    <li><code>TerminationReason</code>（终止原因）枚举给 UI 明确反馈，用户知道是 LLM 自然停止还是被中断</li>
+    <li><code>last_tool_signature</code>（上次工具签名）用于 doom_loop 检测，连续 3 次相同工具相同输入强制终止</li>
+  </ul>
+</div>
+
+</div>
+</section>
+
+<!-- ============================== 7 ============================== -->
+<section id="s7">
+<div class="section-title"><span class="num">七、</span>主循环设计（Orchestrator）</div>
+<div class="body">
+
+<p>主循环位于 <code>loop.py</code>，是编排层核心。借鉴四项目共识的 while-true 骨架 + Q-agent 自身约束。</p>
+
+<h3>Orchestrator 类定义</h3>
+
+<pre><code># q_agent/orchestrator/loop.py
+from __future__ import annotations
+from typing import Callable, Optional
+from q_agent.llm import LLMClient
+from q_agent.orchestrator.types import (
+    Message, TurnState, TurnResult, TerminationReason, ToolCall, ToolResult
+)
+from q_agent.orchestrator.context import ContextManager
+from q_agent.orchestrator.dispatcher import parse_response, execute_tool_calls
+
+
+class Orchestrator:
+    """编排器主循环驱动"""
+
+    def __init__(
+        self,
+        llm_client: LLMClient,
+        context_manager: ContextManager,
+        max_steps: int = 30,
+        consecutive_error_threshold: int = 3,
+        doom_loop_threshold: int = 3,
+        on_step: Optional[Callable[[TurnState], None]] = None,
+    ) -> None:
+        self.llm = llm_client
+        self.ctx = context_manager
+        self.max_steps = max_steps
+        self.err_threshold = consecutive_error_threshold
+        self.doom_threshold = doom_loop_threshold
+        self.on_step = on_step  # UI 回调，每步触发（用于进度展示）
+
+    def run_turn(self, user_input: str) -> TurnResult:
+        """主循环：从用户输入到最终 assistant 回复"""
+        # 1. 初始化：用户消息进上下文
+        self.ctx.append_user_message(user_input)
+        state = TurnState(messages=list(self.ctx.messages))
+
+        while True:
+            # 2. 终止判定（多 bool 组合）
+            reason = self._check_termination(state)
+            if reason is not None:
+                return self._finalize(state, reason)
+
+            # 3. 调用 LLM（流式）
+            try:
+                stream = self.llm.chat_stream(
+                    messages=self.ctx.to_llm_format(),
+                    tools=self.ctx.available_tools(),
+                )
+                assistant_msg, tool_calls = parse_response(stream)
+            except Exception as e:
+                # 4. LLM 失败：产出合成 assistant 消息 + 计数 + 继续判断
+                synth = Message(
+                    role=Role.ASSISTANT,
+                    content=f"[LLM 调用失败：{e}]",
+                    is_synthetic=True,
+                )
+                self.ctx.append_message(synth)
+                state = TurnState(
+                    messages=list(self.ctx.messages),
+                    steps=state.steps,
+                    consecutive_errors=state.consecutive_errors + 1,
+                    last_tool_signature=state.last_tool_signature,
+                    doom_loop_count=state.doom_loop_count,
+                )
+                continue
+
+            # 5. assistant 消息入历史
+            self.ctx.append_message(assistant_msg)
+
+            # 6. LLM 自然停止（无 tool_call）→ 终止
+            if not tool_calls:
+                state = self._advance(state, assistant_msg, tool_calls, 0)
+                return self._finalize(state, TerminationReason.LLM_STOPPED)
+
+            # 7. 工具执行（含错误回喂）
+            results = execute_tool_calls(tool_calls)
+            for result in results:
+                tool_msg = Message(
+                    role=Role.TOOL,
+                    content=result.content if result.error is None else result.error,
+                    tool_call_id=result.call_id,
+                )
+                self.ctx.append_message(tool_msg)
+
+            # 8. doom_loop 检测：连续相同工具相同输入
+            new_sig = self._tool_signature(tool_calls)
+            is_doom = new_sig == state.last_tool_signature
+            doom_count = state.doom_loop_count + 1 if is_doom else 0
+
+            # 9. 步数推进 + 状态整体覆写
+            state = TurnState(
+                messages=list(self.ctx.messages),
+                steps=state.steps + 1,
+                consecutive_errors=0,  # 成功执行清零
+                last_tool_signature=new_sig,
+                doom_loop_count=doom_count,
+            )
+
+            # 10. UI 回调（流式进度）
+            if self.on_step:
+                self.on_step(state)
+
+    def _check_termination(self, state: TurnState) -> Optional[TerminationReason]:
+        """终止判定（多 bool 组合）"""
+        if state.consecutive_errors >= self.err_threshold:
+            return TerminationReason.CONSECUTIVE_ERRORS
+        if state.doom_loop_count >= self.doom_threshold:
+            return TerminationReason.DOOM_LOOP
+        if state.steps >= self.max_steps:
+            # 软截止：先 prefill 提示 LLM 收尾，下一轮再判断
+            # 简化版：直接终止（v0.0.18 不做 prefill，留 v0.0.19+）
+            return TerminationReason.MAX_STEPS_REACHED
+        if self.ctx.is_overflow():
+            return TerminationReason.CONTEXT_OVERFLOW
+        return None
+
+    def _tool_signature(self, tool_calls: list[ToolCall]) -> tuple[str, str]:
+        """工具调用签名（用于 doom_loop 检测）"""
+        if not tool_calls:
+            return ("", "")
+        first = tool_calls[0]
+        import json
+        return (first.name, json.dumps(first.arguments, sort_keys=True))
+
+    def _advance(self, state, msg, tool_calls, err_delta):
+        """状态推进（整体覆写）"""
+        return TurnState(
+            messages=list(self.ctx.messages),
+            steps=state.steps,
+            consecutive_errors=state.consecutive_errors + err_delta,
+            last_tool_signature=state.last_tool_signature,
+            doom_loop_count=state.doom_loop_count,
+        )
+
+    def _finalize(self, state, reason) -> TurnResult:
+        """收尾：提取最终 assistant 文本"""
+        final_text = ""
+        for m in reversed(state.messages):
+            if m.role == Role.ASSISTANT and not m.is_synthetic:
+                final_text = m.content
+                break
+        return TurnResult(
+            messages=state.messages,
+            final_assistant_text=final_text,
+            termination_reason=reason,
+            steps_executed=state.steps,
+            tool_calls_made=[tc for m in state.messages for tc in m.tool_calls],
+        )
+</code></pre>
+
+<h3>循环步骤详解</h3>
+
+<table>
+  <thead>
+    <tr><th>步骤</th><th>动作</th><th>失败处理</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1. 初始化</td><td>用户消息入 ContextManager（上下文管理器）</td><td>—</td></tr>
+    <tr><td>2. 终止判定</td><td>多 bool 检查（错误数/doom/步数/溢出）</td><td>命中即返回 TurnResult</td></tr>
+    <tr><td>3. LLM 调用</td><td>流式调 chat_stream，parse_response 解析</td><td>异常 → 产出合成 assistant 消息 + 错误计数+1 + 继续判断</td></tr>
+    <tr><td>4. assistant 入历史</td><td>ContextManager.append_message</td><td>—</td></tr>
+    <tr><td>5. LLM 自然停止</td><td>tool_calls 为空 → 直接 finalize</td><td>—</td></tr>
+    <tr><td>6. 工具执行</td><td>dispatcher.execute_tool_calls 批量执行</td><td>失败转 ToolResult(error) 回喂</td></tr>
+    <tr><td>7. tool_result 入历史</td><td>每条工具结果作为 role=TOOL 消息</td><td>—</td></tr>
+    <tr><td>8. doom_loop 检测</td><td>新签名 vs 上次签名 → 计数或清零</td><td>达阈值即终止</td></tr>
+    <tr><td>9. 状态整体覆写</td><td>TurnState(**new_fields) 替换</td><td>—</td></tr>
+    <tr><td>10. UI 回调</td><td>on_step(state) 触发</td><td>—</td></tr>
+  </tbody>
+</table>
+
+</div>
+</section>
+
+<!-- ============================== 8 ============================== -->
+<section id="s8">
+<div class="section-title"><span class="num">八、</span>Planner 决策：不做独立 Planner</div>
+<div class="body">
+
+<p>这是本架构与"教科书 Agent 架构"最大的差异点。本节给出理性论证。</p>
+
+<h3>教科书架构 vs 实际项目</h3>
+<p>教科书 Agent 架构常画成：<code>User → Planner → Orchestrator → Tool → LLM</code>（用户 → 规划器 → 编排器 → 工具 → LLM），Planner 负责把用户意图拆成多步计划，Orchestrator 负责执行计划。</p>
+<p>但四个主流项目的实际实现都<strong>没有独立 Planner</strong>。原因：</p>
+
+<ol>
+  <li><strong>现代 LLM 已内化规划能力</strong>：通过 tool_calling，LLM 自己决定调用什么工具、传什么参数。不需要外置 Planner 拆任务</li>
+  <li><strong>外置 Planner 反而约束 LLM 灵活性</strong>：LLM 可以根据工具执行结果动态调整下一步，外置 Planner 的固定计划反而僵化</li>
+  <li><strong>节省 token</strong>：Planner 模块通常要再调一次 LLM 做规划，等于两倍 LLM 调用。直接让执行 LLM 输出 tool_call 是单次调用</li>
+  <li><strong>代码简洁性</strong>：少一个模块，少一份接口，少一份测试</li>
+</ol>
+
+<h3>Q-agent 的 Planner 在哪里？</h3>
+<p>"规划"职责被分摊到三个地方：</p>
+<ol>
+  <li><strong>系统提示</strong>（在 ContextManager）：告诉 LLM 可用工具、调用格式、约束</li>
+  <li><strong>LLM 自身</strong>：通过 tool_calling 输出结构化意图</li>
+  <li><strong>dispatcher.parse_response</strong>（在 dispatcher.py）：解析 LLM 输出的 <code>tool_use</code> 块成 <code>ToolCall</code> 对象</li>
+</ol>
+
+<p>这三个加起来等于 Planner 职责，但不需要独立模块。</p>
+
+<h3>什么时候才需要独立 Planner？</h3>
+<p>以下场景未来若出现，再考虑引入独立 Planner：</p>
+<ul>
+  <li>需要多步前瞻规划（如 chess 那种搜索树展开）</li>
+  <li>用户输入是模糊意图，需要 LLM 先澄清再执行</li>
+  <li>需要根据用户历史行为预测意图（个性化规划）</li>
+  <li>需要把任务拆给多个子 agent 并行执行（多 agent 委派）</li>
+</ul>
+
+<p>当前 Q-agent 单 agent + 单 Ollama + 单用户场景都不属于以上任何一种，所以不做独立 Planner。</p>
+
+<div class="callout callout-warn">
+  <div class="callout-title">架构预留</div>
+  如果未来需要 Planner，可在 dispatcher.py 加 <code>pre_plan(messages) -&gt; list[ToolCall]</code> 钩子，在调 LLM 前先注入规划。无需改动 Orchestrator 主循环。
+</div>
+
+</div>
+</section>
+
+<!-- ============================== 9 ============================== -->
+<section id="s9">
+<div class="section-title"><span class="num">九、</span>工具调用循环</div>
+<div class="body">
+
+<p>工具调用循环在 <code>dispatcher.py</code>，负责把 LLM 输出的 tool_use 块解析成 ToolCall 列表，调度 <code>q_agent.tools.executor</code> 执行，收集结果。</p>
+
+<h3>dispatcher.py 接口</h3>
+
+<pre><code># q_agent/orchestrator/dispatcher.py
+from __future__ import annotations
+from typing import Iterator
+from q_agent.orchestrator.types import Message, ToolCall, ToolResult, Role
+from q_agent.tools.executor import execute_tool, execute_shell
+from q_agent.tools.safety import check_command, check_path
+
+
+def parse_response(stream: Iterator) -&gt; tuple[Message, list[ToolCall]]:
+    """解析 LLM 流式响应 → assistant 消息 + 工具调用列表
+
+    Args:
+        stream: LLMClient.chat_stream() 返回的流式响应
+
+    Returns:
+        (assistant_msg, tool_calls)
+        - assistant_msg: 包含 LLM 文本输出 + tool_use 块
+        - tool_calls: 解析出的 ToolCall 列表（可能为空）
+    """
+    # Ollama /api/chat 流式输出 NDJSON，每行含 message.delta
+    # 累积文本 + 累积 tool_calls（Ollama tool_calls 格式：message.tool_calls）
+    text_parts: list[str] = []
+    tool_calls: list[ToolCall] = []
+
+    for chunk in stream:
+        if chunk.get("message", {}).get("content"):
+            text_parts.append(chunk["message"]["content"])
+        if chunk.get("message", {}).get("tool_calls"):
+            for tc in chunk["message"]["tool_calls"]:
+                tool_calls.append(ToolCall(
+                    id=tc["id"],
+                    name=tc["function"]["name"],
+                    arguments=tc["function"]["arguments"],
+                ))
+        if chunk.get("done"):
+            break
+
+    assistant_msg = Message(
+        role=Role.ASSISTANT,
+        content="".join(text_parts),
+        tool_calls=tool_calls,
+    )
+    return assistant_msg, tool_calls
+
+
+def execute_tool_calls(tool_calls: list[ToolCall]) -&gt; list[ToolResult]:
+    """执行工具调用列表，收集结果（含错误回喂）
+
+    顺序执行（v0.0.18 不做并发，避免本地资源竞争）。
+    失败不抛异常，转 ToolResult(error) 回喂 LLM。
+    """
+    results: list[ToolResult] = []
+    for tc in tool_calls:
+        try:
+            # 安全校验（不违反永不沙箱原则，仅基本输入校验）
+            _validate_safety(tc)
+
+            # 调用 q_agent.tools.executor 执行
+            if tc.name == "shell_exec":
+                output = execute_shell(tc.arguments.get("cmd", ""))
+            else:
+                output = execute_tool(tc.name, tc.arguments)
+
+            results.append(ToolResult(call_id=tc.id, content=str(output)))
+        except Exception as e:
+            # 工具失败 → 转 ToolResult(error) 回喂，不抛异常
+            results.append(ToolResult(call_id=tc.id, error=f"{type(e).__name__}: {e}"))
+    return results
+
+
+def _validate_safety(tc: ToolCall) -&gt; None:
+    """基本安全校验（不是沙箱）"""
+    if tc.name == "shell_exec":
+        cmd = tc.arguments.get("cmd", "")
+        check_command(cmd)   # 危险命令黑名单拦截
+    if tc.name in ("read_file", "write_file", "move_file"):
+        path = tc.arguments.get("path", "")
+        check_path(path)     # 项目根目录保护
+</code></pre>
+
+<h3>工具调用循环时序</h3>
+
+<div class="ascii-diagram">用户输入
+    ↓
+[LLM 调用] ← ContextManager.to_llm_format()
+    ↓
+parse_response(stream)
+    ├─→ assistant_msg (含 text + tool_use 块)
+    └─→ tool_calls: [ToolCall(id, name, args), ...]
+    ↓
+ContextManager.append_message(assistant_msg)
+    ↓
+[LLM 自然停止? tool_calls 为空]
+    是 → finalize(LLM_STOPPED)
+    否 ↓
+execute_tool_calls(tool_calls)
+    ├─→ ToolResult(content=...)     成功
+    └─→ ToolResult(error=...)      失败（不抛异常）
+    ↓
+每个 ToolResult → Message(role=TOOL) → ContextManager.append_message
+    ↓
+[doom_loop 检测] [步数推进] [状态整体覆写]
+    ↓
+回到 [LLM 调用] 进入下一轮</div>
+
+</div>
+</section>
+
+<!-- ============================== 10 ============================== -->
+<section id="s10">
+<div class="section-title"><span class="num">十、</span>上下文管理（分级压缩）</div>
+<div class="body">
+
+<p>位于 <code>context.py</code>。Q-agent 采用 2 级压缩，比 Claude Code 6 级简单，比 OpenCode 1 级更稳健。</p>
+
+<h3>ContextManager 类</h3>
+
+<pre><code># q_agent/orchestrator/context.py
+from __future__ import annotations
+from q_agent.orchestrator.types import Message, Role
+
+
+class ContextManager:
+    """消息历史 + token 计数 + 分级压缩"""
+
+    def __init__(
+        self,
+        system_prompt: str,
+        max_tokens: int = 8000,        # 本地 LLM 上下文窗口上限
+        soft_limit_ratio: float = 0.8,  # 软阈值（达 80% 触发压缩）
+        keep_recent: int = 6,           # 压缩时保留最近 6 条消息
+    ) -&gt; None:
+        self.system_prompt = system_prompt
+        self.max_tokens = max_tokens
+        self.soft_limit = int(max_tokens * soft_limit_ratio)
+        self.keep_recent = keep_recent
+        self.messages: list[Message] = []
+
+    def append_user_message(self, text: str) -&gt; None:
+        self.messages.append(Message(role=Role.USER, content=text))
+
+    def append_message(self, msg: Message) -&gt; None:
+        self.messages.append(msg)
+        # 达软阈值触发压缩（二级：摘要压缩）
+        if self.estimate_tokens() &gt; self.soft_limit:
+            self._compact()
+
+    def to_llm_format(self) -&gt; list[dict]:
+        """转 Ollama /api/chat 格式"""
+        result = [{"role": "system", "content": self.system_prompt}]
+        for m in self.messages:
+            result.append(self._msg_to_dict(m))
+        return result
+
+    def available_tools(self) -&gt; list[dict]:
+        """返回工具元数据（供 LLM tool_calling）"""
+        # v0.0.18 占位：从 q_agent.tools 注册表拉取
+        from q_agent.tools import list_tools
+        return list_tools()
+
+    def estimate_tokens(self) -&gt; int:
+        """粗略 token 估算（1 token ≈ 4 字符，本地 LLM 中文更省）"""
+        total_chars = sum(len(m.content) for m in self.messages)
+        return total_chars // 4
+
+    def is_overflow(self) -&gt; bool:
+        """硬溢出（无法压缩回软阈值以下）"""
+        return self.estimate_tokens() &gt; self.max_tokens
+
+    def _compact(self) -&gt; None:
+        """二级压缩：摘要旧消息 + 保留最近 N 条 + 系统提示不动
+
+        策略（借鉴 OpenCode tail 保留 + Claude Code microcompact）：
+        1. 保留最近 self.keep_recent 条消息原样
+        2. 较老消息合并成一条 summary Message
+        3. 系统提示不动
+        """
+        if len(self.messages) &lt;= self.keep_recent * 2:
+            return  # 消息不够多，跳过
+
+        # 分块：旧消息 + 最近消息
+        old_msgs = self.messages[:-self.keep_recent]
+        recent_msgs = self.messages[-self.keep_recent:]
+
+        # 生成摘要（v0.0.18 简化版：用文本截断，不调 LLM 做摘要）
+        # 真摘要留 v0.0.19+：调 LLM 自己生成 summary
+        summary_text = self._summarize(old_msgs)
+
+        summary_msg = Message(
+            role=Role.ASSISTANT,
+            content=f"[上下文摘要] {summary_text}",
+            is_synthetic=True,
+        )
+
+        self.messages = [summary_msg] + recent_msgs
+
+    def _summarize(self, msgs: list[Message]) -&gt; str:
+        """v0.0.18 简化版：取每条消息前 100 字符拼成摘要
+        v0.0.19+ 改为调 LLM 生成真摘要"""
+        parts = []
+        for m in msgs:
+            if m.role == Role.USER:
+                parts.append(f"用户问: {m.content[:100]}")
+            elif m.role == Role.ASSISTANT and not m.is_synthetic:
+                parts.append(f"AI答: {m.content[:100]}")
+            elif m.role == Role.TOOL:
+                parts.append(f"工具结果: {m.content[:100]}")
+        return " | ".join(parts)[:500]  # 总长不超 500 字
+</code></pre>
+
+<h3>压缩级别说明</h3>
+<table>
+  <thead>
+    <tr><th>级别</th><th>触发</th><th>动作</th><th>v0.0.18 实现</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>L1 软阈值压缩</td><td>token 达 80% max</td><td>摘要旧消息 + 保留最近 6 条</td><td>简化版文本截断</td></tr>
+    <tr><td>L2 硬溢出终止</td><td>压缩后仍超 max</td><td>循环终止 + 用户提示</td><td>is_overflow() 返回 True</td></tr>
+    <tr><td>未来 L3 真摘要</td><td>同 L1</td><td>调 LLM 生成 summary</td><td>v0.0.19+ 预留</td></tr>
+  </tbody>
+</table>
+
+<div class="callout callout-warn">
+  <div class="callout-title">v0.0.18 简化策略</div>
+  v0.0.18 用文本截断做摘要（每条消息取前 100 字符），不调 LLM 生成真摘要。理由：① 本地 LLM 调用慢，压缩时再调一次会拖慢 ② 单人桌面应用对话一般不超过 50 轮，截断足够 ③ 真摘要留 v0.0.19+ 优化。
+</div>
+
+</div>
+</section>
+
+<!-- ============================== 11 ============================== -->
+<section id="s11">
+<div class="section-title"><span class="num">十一、</span>错误处理与降级</div>
+<div class="body">
+
+<p>借鉴 Claude Code"错误永不抛出循环"+ OpenCode retry policy，Q-agent 错误处理分四类：</p>
+
+<h3>错误分类与处理</h3>
+<table>
+  <thead>
+    <tr><th>错误类型</th><th>来源</th><th>处理方式</th><th>循环影响</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>工具执行失败</td><td>q_agent.tools.executor 抛异常</td><td>转 ToolResult(error) 回喂 LLM</td><td>不中断，LLM 自决策下一步</td></tr>
+    <tr><td>LLM API 失败</td><td>Ollama 连接断/超时/500</td><td>产出合成 assistant 消息 + consecutive_errors+1</td><td>不中断，下次循环重试</td></tr>
+    <tr><td>安全校验失败</td><td>safety.check_command/check_path 拒绝</td><td>转 ToolResult(error="命令被安全策略拒绝")</td><td>不中断，LLM 知道被拒</td></tr>
+    <tr><td>上下文溢出</td><td>压缩后仍超 max_tokens</td><td>循环终止 + 用户提示"上下文过长"</td><td>终止当前 turn</td></tr>
+  </tbody>
+</table>
+
+<h3>降级策略</h3>
+
+<pre><code># 错误回喂示例
+
+# 工具失败
+try:
+    output = execute_tool(tc.name, tc.arguments)
+    result = ToolResult(call_id=tc.id, content=str(output))
+except Exception as e:
+    result = ToolResult(
+        call_id=tc.id,
+        error=f"{type(e).__name__}: {e}",
+    )
+    # 不抛异常，继续回喂
+
+# LLM 失败（在 loop.py 主循环）
+try:
+    stream = self.llm.chat_stream(...)
+    assistant_msg, tool_calls = parse_response(stream)
+except Exception as e:
+    synth = Message(
+        role=Role.ASSISTANT,
+        content=f"[LLM 调用失败：{e}]",
+        is_synthetic=True,
+    )
+    self.ctx.append_message(synth)
+    state = TurnState(
+        messages=list(self.ctx.messages),
+        steps=state.steps,
+        consecutive_errors=state.consecutive_errors + 1,
+        last_tool_signature=state.last_tool_signature,
+        doom_loop_count=state.doom_loop_count,
+    )
+    continue  # 下次循环重试</code></pre>
+
+<h3>连续错误阈值</h3>
+<p><code>consecutive_errors &gt;= 3</code> 时循环终止（TerminationReason.CONSECUTIVE_ERRORS）。理由：本地 LLM 不稳定时连续失败 3 次基本无救，强试浪费时间，不如让用户重启或换模型。</p>
+
+</div>
+</section>
+
+<!-- ============================== 12 ============================== -->
+<section id="s12">
+<div class="section-title"><span class="num">十二、</span>循环终止条件</div>
+<div class="body">
+
+<p>终止靠多 bool 组合，对应 <code>TerminationReason</code> 枚举。每个终止原因 UI 都要能反馈给用户。</p>
+
+<table>
+  <thead>
+    <tr><th>原因</th><th>触发条件</th><th>UI 反馈</th><th>优先级</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>LLM_STOPPED</td><td>LLM 输出无 tool_call，自然停止</td><td>正常显示 assistant 文本</td><td>1（最高）</td></tr>
+    <tr><td>USER_CANCEL</td><td>用户点击取消按钮</td><td>气泡 [已取消]</td><td>1</td></tr>
+    <tr><td>DOOM_LOOP</td><td>连续 3 次相同工具相同输入</td><td>气泡 [检测到循环，已终止]</td><td>2</td></tr>
+    <tr><td>CONSECUTIVE_ERRORS</td><td>连续 3 次 LLM 失败</td><td>气泡 [LLM 连续失败，请检查模型]</td><td>2</td></tr>
+    <tr><td>MAX_STEPS_REACHED</td><td>步数达 30</td><td>气泡 [达到步数上限]</td><td>3</td></tr>
+    <tr><td>CONTEXT_OVERFLOW</td><td>压缩后仍超 max_tokens</td><td>气泡 [上下文过长，请新建对话]</td><td>3</td></tr>
+    <tr><td>LLM_FAILED</td><td>LLM 首次调用就失败</td><td>错误气泡</td><td>2</td></tr>
+  </tbody>
+</table>
+
+<h3>软截止 vs 硬中断</h3>
+<p>借鉴 OpenCode MAX_STEPS_PROMPT 软截止模式：</p>
+<ul>
+  <li>v0.0.18 简化版：达 max_steps 直接终止（硬中断）</li>
+  <li>v0.0.19+ 改进：达 max_steps 时给 LLM 一条 prefill 提示"请在下一条消息中总结收尾"，让 LLM 自然收尾；如果再不收尾才硬中断</li>
+</ul>
+
+<div class="callout">
+  <div class="callout-title">用户取消实现</div>
+  借鉴 v0.0.17 取消按钮接通 ChatWorker.stop 的模式（ADR-031）：Orchestrator.run_turn 启动时记录 stop_flag，每轮迭代开头检查 stop_flag，命中即返回 USER_CANCEL。UI 同步立即清理不等后台线程。
+</div>
+
+</div>
+</section>
+
+<!-- ============================== 13 ============================== -->
+<section id="s13">
+<div class="section-title"><span class="num">十三、</span>多 Agent 委派（接口预留）</div>
+<div class="body">
+
+<p>v0.0.18 只做单 agent。但数据类型和接口为未来多 agent 委派预留，避免未来扩展时破坏架构。</p>
+
+<h3>预留接口</h3>
+
+<pre><code># 在 types.py ToolCall 预留 delegate_agent 种
+@dataclass
+class ToolCall:
+    id: str
+    name: str  # 可取值：read_file / shell_exec / ... / delegate_agent（预留）
+    arguments: dict[str, object]
+
+# 委派工具的参数格式（v0.0.19+ 实现时定义）
+# delegate_agent arguments = {
+#     "agent_name": "researcher",  # 子代理名
+#     "task": "查找所有 TODO 注释",  # 委派任务
+# }</code></pre>
+
+<h3>未来多 agent 委派流程（借鉴 Claude Code AgentTool）</h3>
+
+<div class="ascii-diagram">主 agent 决定委派 → 输出 tool_call(name="delegate_agent", args={agent, task})
+    ↓
+dispatcher.execute_tool_calls 识别 delegate_agent → 不走 executor
+    ↓
+Orchestrator 启动子 Orchestrator（新 turn，独立上下文）
+    ↓
+子 Orchestrator 跑完 → 返回 final_assistant_text
+    ↓
+主 Orchestrator 把子结果作为 task-notification（任务通知）注入主上下文
+    ↓
+主 agent 继续决策</div>
+
+<div class="callout callout-warn">
+  <div class="callout-title">v0.0.18 不实现</div>
+  只在 <code>ToolCall.name</code> 字段加 <code>delegate_agent</code> 占位，dispatcher.execute_tool_calls 遇到时返回 <code>ToolResult(error="多 agent 委派 v0.0.19+ 支持")</code>。这样 LLM 万一尝试委派时不会崩溃，但实际不执行。
+</div>
+
+</div>
+</section>
+
+<!-- ============================== 14 ============================== -->
+<section id="s14">
+<div class="section-title"><span class="num">十四、</span>与其他层的边界</div>
+<div class="body">
+
+<p>编排层位于五层结构的中间，与上（对话/交互）、下（LLM/工具/记忆）都有清晰边界。边界定义如下：</p>
+
+<h3>与对话/交互层（UI）</h3>
+<table>
+  <thead>
+    <tr><th>方向</th><th>接口</th><th>说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>UI → Orchestrator</td><td>run_turn(user_input: str) -&gt; TurnResult</td><td>同步调用（v0.0.18），未来包到 ChatWorker QThread</td></tr>
+    <tr><td>Orchestrator → UI</td><td>on_step: Callable[[TurnState], None]</td><td>每步回调，UI 流式更新气泡</td></tr>
+    <tr><td>UI → Orchestrator</td><td>stop()</td><td>取消信号，借鉴 ChatWorker.stop 模式</td></tr>
+  </tbody>
+</table>
+
+<h3>与 LLM 抽象层</h3>
+<table>
+  <thead>
+    <tr><th>方向</th><th>接口</th><th>说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Orchestrator → LLM</td><td>LLMClient.chat_stream(messages, tools) -&gt; Iterator[dict]</td><td>流式调用，返回 NDJSON chunk</td></tr>
+    <tr><td>LLM → Orchestrator</td><td>chunk["message"]["content"] / ["tool_calls"]</td><td>Ollama /api/chat 格式</td></tr>
+  </tbody>
+</table>
+
+<h3>与工具调用层</h3>
+<table>
+  <thead>
+    <tr><th>方向</th><th>接口</th><th>说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Orchestrator → Tools</td><td>execute_tool(name, args) / execute_shell(cmd)</td><td>dispatcher 调用</td></tr>
+    <tr><td>Orchestrator → Safety</td><td>check_command(cmd) / check_path(path)</td><td>dispatcher 调用</td></tr>
+    <tr><td>Tools → Orchestrator</td><td>返回值或抛异常</td><td>异常被 dispatcher 转成 ToolResult(error)</td></tr>
+  </tbody>
+</table>
+
+<h3>与运行期记忆层</h3>
+<p>v0.0.18 暂不接，ContextManager 自己管消息历史。未来运行期记忆层落地后，ContextManager.messages 改为读写 MemoryStore。预留接口：</p>
+
+<pre><code># 未来 ContextManager 重构
+class ContextManager:
+    def __init__(self, memory_store: MemoryStore):
+        self.store = memory_store  # v0.0.20+ 接入
+
+    def append_message(self, msg: Message) -&gt; None:
+        self.store.append(msg)  # 写入运行期记忆
+        self._cache.append(msg)  # 本地缓存供 to_llm_format</code></pre>
+
+<div class="callout callout-warn">
+  <div class="callout-title">贴纸式约束</div>
+  编排层只能引用其他层的公开接口，不允许被其他层反向引用。任何对 LLMClient / executor / ChatPage 类继承、objectName、公开接口的改动 = 架构级改动，必须先出方案让用户否决（CLAUDE.md 第二十一节）。
+</div>
+
+</div>
+</section>
+
+<!-- ============================== 15 ============================== -->
+<section id="s15">
+<div class="section-title"><span class="num">十五、</span>实施路线（三步走）</div>
+<div class="body">
+
+<p>编排层落地分三个版本，每版本都是独立可测单元，最后一步接通 UI。</p>
+
+<h3>v0.0.18：编排层骨架 + 完整单测</h3>
+<p>目标：编排层 5 模块全部落地 + 单测覆盖 80%+，但 UI 看不到变化（用 mock LLM + mock tool 测试）。</p>
+<ol>
+  <li>实现 <code>types.py</code> 数据类型</li>
+  <li>实现 <code>turn.py</code> TurnState 状态机</li>
+  <li>实现 <code>dispatcher.py</code> parse_response + execute_tool_calls</li>
+  <li>实现 <code>context.py</code> ContextManager（含简化压缩）</li>
+  <li>实现 <code>loop.py</code> Orchestrator 主循环</li>
+  <li>测试：mock LLM 返回 tool_use 块 + mock executor 返回结果，覆盖所有路径（正常/工具失败/LLM 失败/doom_loop/max_steps/取消）</li>
+  <li>打 v0.0.18 .exe（编排层代码进包，UI 仍走 ChatWorker 不接 Orchestrator）</li>
+</ol>
+<p>预计工作量：3-5 个工作日。</p>
+
+<h3>v0.0.19：工具调用层实化 + 编排层接通</h3>
+<p>目标：把 stub 的工具调用层实化（@tool 装饰器 + executor + safety 真工作），编排层 dispatcher 真调 executor，端到端跑通。</p>
+<ol>
+  <li>实化 <code>q_agent/tools/</code>：@tool 装饰器 + 内置工具（echo / read_file / write_file / shell_exec）+ executor + safety</li>
+  <li>编排层 dispatcher.execute_tool_calls 改为真调 executor（v0.0.18 是 mock）</li>
+  <li>编排层 dispatcher.parse_response 改为真解析 Ollama 输出（v0.0.18 是 mock chunk）</li>
+  <li>集成测试：mock Ollama HTTP server + 真工具执行，跑端到端流程</li>
+  <li>打 v0.0.19 .exe（编排层 + 工具层代码进包，UI 仍走 ChatWorker）</li>
+</ol>
+<p>预计工作量：3-5 个工作日。</p>
+
+<h3>v0.0.20：UI 接通 + 用户可见能力</h3>
+<p>目标：UI 层 ChatWorker 改为调 Orchestrator，用户在 UI 上能看到"LLM 调用了 read_file 工具，结果如下"。</p>
+<ol>
+  <li>新建 <code>q_agent/ui/orchestrator_worker.py</code>：QThread 包 Orchestrator.run_turn，发 step/done/failed 信号（贴纸式挂载，不侵入 ChatWorker）</li>
+  <li>ChatPage 加 <code>_on_orchestrator_step</code> slot：收到 step 信号时在气泡里追加工具调用提示</li>
+  <li>ChatPage 改 chat 触发：从直接调 ChatWorker 改为先调 OrchestratorWorker，再 fallback 到 ChatWorker（兼容模式）</li>
+  <li>工具调用 UI：气泡里显示 [调用工具: read_file(path=G:\test.txt)] + [结果: ...]</li>
+  <li>打 v0.0.20 .exe（第一个用户可见编排层能力的版本）</li>
+</ol>
+<p>预计工作量：5-7 个工作日。</p>
+
+<h3>风险与回滚</h3>
+<div class="callout callout-danger">
+  <div class="callout-title">关键风险</div>
+  <ul>
+    <li>v0.0.18 单测用 mock 跑通，v0.0.19 接真 LLM 真工具时可能出现 mock 未覆盖的边界情况 → 回滚到 v0.0.18 mock 模式，定位问题</li>
+    <li>v0.0.20 UI 接通可能影响 v0.0.17 的取消按钮等既有功能 → 必须按贴纸式原则独立挂载 OrchestratorWorker，不侵入 ChatWorker，可随时回滚</li>
+    <li>本地 LLM 输出格式可能与 Ollama 标准 NDJSON 有差异 → dispatcher.parse_response 需要容错</li>
+  </ul>
+</div>
+
+</div>
+</section>
+
+<!-- ============================== 16 ============================== -->
+<section id="s16">
+<div class="section-title"><span class="num">十六、</span>借鉴对照表</div>
+<div class="body">
+
+<p>每个设计点对应四个项目的具体借鉴来源，方便回溯查证。</p>
+
+<table>
+  <thead>
+    <tr><th>设计点</th><th>Q-agent 位置</th><th>借鉴来源</th><th>原始文件位置</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>while-true 主循环</td><td>loop.py run_turn()</td><td>四项目共识</td><td>—</td></tr>
+    <tr><td>无独立 Planner</td><td>dispatcher.py parse_response()</td><td>四项目共识</td><td>—</td></tr>
+    <tr><td>状态整体覆写</td><td>loop.py TurnState(...)</td><td>Claude Code queryLoop</td><td>src/query.ts:241</td></tr>
+    <tr><td>错误转 tool_result 回喂</td><td>dispatcher.py execute_tool_calls()</td><td>Claude Code</td><td>src/query.ts 错误处理路径</td></tr>
+    <tr><td>合成 assistant 消息</td><td>loop.py LLM 失败分支</td><td>Claude Code</td><td>src/query.ts yield synthetic</td></tr>
+    <tr><td>多 bool 终止组合</td><td>loop.py _check_termination()</td><td>Codex turn loop</td><td>codex-rs/core/src/session/turn.rs:141-454</td></tr>
+    <tr><td>doom_loop 检测</td><td>loop.py _tool_signature() + doom_loop_count</td><td>OpenCode</td><td>packages/opencode/src/session/run-state.ts:52-106</td></tr>
+    <tr><td>MAX_STEPS 软截止</td><td>v0.0.19+ 预留</td><td>OpenCode</td><td>packages/opencode/src/session/prompt.ts MAX_STEPS_PROMPT</td></tr>
+    <tr><td>上下文压缩 tail 保留</td><td>context.py _compact()</td><td>OpenCode SessionCompaction</td><td>packages/opencode/src/session/compaction.ts:198-249</td></tr>
+    <tr><td>简化压缩（不调 LLM 摘要）</td><td>context.py _summarize()</td><td>Q-agent 自身决策</td><td>—</td></tr>
+    <tr><td>多 agent 委派接口预留</td><td>types.py ToolCall.name = "delegate_agent"</td><td>Claude Code AgentTool</td><td>src/coordinator/runAgent.ts:248</td></tr>
+    <tr><td>子 agent 结果注入主上下文</td><td>v0.0.19+ 预留</td><td>Claude Code task-notification XML</td><td>src/coordinator/</td></tr>
+    <tr><td>用户取消 UI 同步清理</td><td>loop.py stop_flag 检查</td><td>Q-agent v0.0.17 ADR-031</td><td>memory/ADR架构决策记录.md ADR-031</td></tr>
+    <tr><td>OrchestratorWorker QThread 包装</td><td>v0.0.20 ui/orchestrator_worker.py</td><td>Q-agent ChatWorker 模式</td><td>q_agent/ui/chat_worker.py</td></tr>
+    <tr><td>ApprovalStore 缓存</td><td>暂不实现（永不沙箱）</td><td>Codex ToolOrchestrator</td><td>codex-rs/core/src/tools/orchestrator.rs</td></tr>
+    <tr><td>CompactionPhase + Reason 分类</td><td>v0.0.19+ 预留</td><td>Codex auto_compact_token_status</td><td>codex-rs/core/src/session/turn.rs:799-846</td></tr>
+    <tr><td>SessionTask trait 抽象</td><td>Python 等价 Protocol</td><td>Codex</td><td>codex-rs/core/src/session/</td></tr>
+    <tr><td>五层指令系统</td><td>暂不实现</td><td>Codex build_initial_context</td><td>codex-rs/core/src/session/mod.rs:3012-3199</td></tr>
+    <tr><td>guardian 隔离</td><td><strong>不采纳</strong>（永不沙箱）</td><td>Codex</td><td>codex-rs/core/src/review.rs</td></tr>
+    <tr><td>sandboxing 守护链</td><td><strong>不采纳</strong>（永不沙箱）</td><td>Codex</td><td>codex-rs/sandboxing/</td></tr>
+    <tr><td>Effect 框架 + SQLite 持久化</td><td><strong>不采纳</strong>（零依赖）</td><td>OpenCode</td><td>packages/opencode/src/</td></tr>
+    <tr><td>20+ provider 抽象</td><td><strong>不采纳</strong>（本地 LLM 优先）</td><td>OpenCode</td><td>packages/opencode/src/provider/</td></tr>
+    <tr><td>多通道 messaging</td><td><strong>不采纳</strong>（单人桌面应用）</td><td>OpenClaw</td><td>openclaw/src/channels/</td></tr>
+    <tr><td>CLI backend / ACP runtime</td><td><strong>不采纳</strong>（不嵌套其他 CLI）</td><td>OpenClaw</td><td>openclaw/src/agents/attempt-execution.ts</td></tr>
+    <tr><td>stream wrapper 多层清洗</td><td><strong>不采纳</strong>（Ollama 输出规范）</td><td>OpenClaw</td><td>openclaw/src/agents/embedded-agent-runner/run/attempt.ts:3060</td></tr>
+    <tr><td>rollout sqlite 持久化</td><td><strong>不采纳</strong>（关闭即清空）</td><td>Codex</td><td>codex-rs/rollout/</td></tr>
+  </tbody>
+</table>
+
+</div>
+</section>
+
+<!-- ============================== 17 ============================== -->
+<section id="s17">
+<div class="section-title"><span class="num">十七、</span>术语表</div>
+<div class="body">
+
+<p>报告中出现的英文术语对照表（按首次出现顺序）。</p>
+
+<div class="term-list">
+<dl>
+  <dt>orchestrator / planner</dt>
+  <dd>编排器 / 规划器（Agent 系统中间调度层两个角色）</dd>
+
+  <dt>stub</dt>
+  <dd>占位空壳（接口已定义但未实现）</dd>
+
+  <dt>tool_calling</dt>
+  <dd>工具调用（LLM 在响应中输出结构化工具调用意图的能力）</dd>
+
+  <dt>tool_use</dt>
+  <dd>工具使用块（LLM 输出中表示"我要调用某工具"的结构化 JSON 块）</dd>
+
+  <dt>tool_result</dt>
+  <dd>工具结果块（工具执行结果回喂给 LLM 的消息块）</dd>
+
+  <dt>needsFollowUp</dt>
+  <dd>需后续轮（Claude Code 表示循环需继续的信号）</dd>
+
+  <dt>stream wrapper</dt>
+  <dd>流包装器（在 LLM 流式输出外层套一层处理逻辑，如清洗、修复格式）</dd>
+
+  <dt>sparse-checkout</dt>
+  <dd>稀疏检出（git 只拉取仓库中部分目录的功能）</dd>
+
+  <dt>PlanModeStreamState</dt>
+  <dd>规划模式流状态（Codex 中 plan mode 的状态机）</dd>
+
+  <dt>SubtaskPart / CompactionPart</dt>
+  <dd>子任务块 / 压缩块（OpenCode 嵌入消息流的编排意图载体）</dd>
+
+  <dt>session</dt>
+  <dd>会话（一轮或多轮对话的容器）</dd>
+
+  <dt>turn</dt>
+  <dd>单轮（用户输入 → LLM 响应 + 可能的工具调用循环，直到 LLM 自然停止）</dd>
+
+  <dt>agentic loop</dt>
+  <dd>智能体循环（LLM → 工具 → 结果回喂 → LLM 的核心循环）</dd>
+
+  <dt>context window</dt>
+  <dd>上下文窗口（LLM 单次能接收的最大 token 数）</dd>
+
+  <dt>token budget</dt>
+  <dd>token 预算（消息历史占用 token 的上限）</dd>
+
+  <dt>toolResultBudget / snip / microcompact / contextCollapse / autocompact / reactiveCompact</dt>
+  <dd>工具结果预算 / 裁剪 / 微压缩 / 上下文塌缩 / 自动压缩 / 响应式压缩（Claude Code 6 级压缩流水线）</dd>
+
+  <dt>synthetic assistant message</dt>
+  <dd>合成助手消息（错误时由代码生成的占位消息，非 LLM 真实输出）</dd>
+
+  <dt>yield</dt>
+  <dd>产出/发射（生成器产出值，此处指循环中生成并发送消息）</dd>
+
+  <dt>tombstone</dt>
+  <dd>墓碑标记（逻辑删除标记，表示某消息已被替换但保留痕迹）</dd>
+
+  <dt>fallback</dt>
+  <dd>降级备选（主路径失败时切换的备用路径/模型）</dd>
+
+  <dt>retry</dt>
+  <dd>重试（失败后再次尝试）</dd>
+
+  <dt>doom_loop</dt>
+  <dd>死循环（连续相同工具相同输入的无限循环，本地 LLM 易出现）</dd>
+
+  <dt>prefill</dt>
+  <dd>预填充（在 LLM 输出前预填一段文本，引导 LLM 按预期续写）</dd>
+
+  <dt>MAX_STEPS_PROMPT</dt>
+  <dd>步数软截止提示（OpenCode 达步数上限时给 LLM 一条收尾提示）</dd>
+
+  <dt>terminal</dt>
+  <dd>终止态（循环结束的状态，含多种原因）</dd>
+
+  <dt>needs_compaction</dt>
+  <dd>需压缩（上下文达阈值需触发的压缩信号）</dd>
+
+  <dt>needs_follow_up / token_limit_reached / has_pending_input</dt>
+  <dd>需后续轮 / token 限制达上限 / 有待处理输入（Codex 三个终止判定布尔）</dd>
+
+  <dt>guardian</dt>
+  <dd>审查者（Codex 中独立 sub-agent 审查 shell 命令安全性的机制，Q-agent 不采纳）</dd>
+
+  <dt>sandbox / sandboxing</dt>
+  <dd>沙箱 / 沙箱机制（隔离执行环境，Q-agent 永不沙箱原则不采纳）</dd>
+
+  <dt>execpolicy</dt>
+  <dd>执行策略（Codex 的命令执行规则 DSL，Q-agent 不采纳）</dd>
+
+  <dt>ApprovalStore</dt>
+  <dd>审批缓存（Codex 缓存审批结果避免重复询问）</dd>
+
+  <dt>CompactionPhase / CompactionReason</dt>
+  <dd>压缩阶段 / 压缩原因（Codex 对压缩动作分类的枚举）</dd>
+
+  <dt>SessionTask</dt>
+  <dd>会话任务（Codex 的 trait，Python 等价为 Protocol）</dd>
+
+  <dt>build_initial_context</dt>
+  <dd>构建初始上下文（Codex 五/六层指令系统构造函数）</dd>
+
+  <dt>base_instructions / initial_context / skill injections / plugin injections / developer messages / user messages</dt>
+  <dd>基础指令 / 初始上下文 / 技能注入 / 插件注入 / 开发者消息 / 用户消息（六层指令）</dd>
+
+  <dt>SubAgent / session_source</dt>
+  <dd>子代理 / 会话来源（Codex 标识子 agent 调用来源的机制）</dd>
+
+  <dt>GuardianRejectionCircuitBreaker</dt>
+  <dd>审查者拒绝熔断器（Codex 连续被拒 N 次后停止重试的机制）</dd>
+
+  <dt>agent-graph-store / agent-identity</dt>
+  <dd>代理图谱存储 / 代理身份（Codex 多 agent 元数据 crate，Q-agent 用字典替代）</dd>
+
+  <dt>context-engine</dt>
+  <dd>上下文引擎（OpenClaw 把上下文管理从 agent loop 解耦的接口）</dd>
+
+  <dt>ContextEngine 8 lifecycle</dt>
+  <dd>ContextEngine 8 个生命周期方法：bootstrap/maintain/ingest/ingestBatch/afterTurn/assemble/compact/dispose（启动/维护/摄入/批量摄入/轮后/装配/压缩/销毁）</dd>
+
+  <dt>embedded-agent-runner</dt>
+  <dd>嵌入式代理运行器（OpenClaw 内嵌执行模式）</dd>
+
+  <dt>CLI backend / ACP runtime</dt>
+  <dd>命令行后端 / ACP 运行时（OpenClaw 子进程式 / 协议式执行后端，Q-agent 不采纳）</dd>
+
+  <dt>agent lane / depth limit</dt>
+  <dd>代理通道 / 深度限制（OpenClaw 子 agent 独立通道 + 嵌套层数限制）</dd>
+
+  <dt>idle-timeout breaker</dt>
+  <dd>空闲超时熔断（OpenClaw 空闲超时停止重试的机制）</dd>
+
+  <dt>tool loop detection</dt>
+  <dd>工具循环检测（OpenClaw 检测工具调用陷入循环的机制）</dd>
+
+  <dt>post-compaction guard</dt>
+  <dd>压缩后守卫（OpenClaw 压缩后立即再次触发压缩的防护）</dd>
+
+  <dt>failover</dt>
+  <dd>故障转移（主路径失败切换到备用路径）</dd>
+
+  <dt>heartbeat</dt>
+  <dd>心跳（定期探活信号）</dd>
+
+  <dt>trajectory</dt>
+  <dd>轨迹（Agent 执行过程的完整记录）</dd>
+
+  <dt>rollout</dt>
+  <dd>执行轨迹持久化（Codex 把 Agent 执行过程存 sqlite 的机制，Q-agent 不采纳）</dd>
+
+  <dt>MessageV2</dt>
+  <dd>消息数据模型 V2（OpenCode 多种 Part 类型的消息结构）</dd>
+
+  <dt>Stream.tap / Stream.takeUntil</dt>
+  <dd>流式分流 / 流式截断（OpenCode Effect 框架处理 LLM 流的工具）</dd>
+
+  <dt>Effect.retry / SessionRetry.policy</dt>
+  <dd>Effect 重试 / 会话重试策略（OpenCode 错误重试机制）</dd>
+
+  <dt>latest(msgs)</dt>
+  <dd>取最新（OpenCode 从消息流提取最新 finished assistant 之后的 parts 作为待处理编排动作）</dd>
+
+  <dt>permission.task glob</dt>
+  <dd>任务权限通配符（OpenCode 用 glob 模式控制子 agent 委派权限）</dd>
+
+  <dt>ask / allow / deny</dt>
+  <dd>询问 / 允许 / 拒绝（OpenCode 三态权限，Q-agent 不采纳）</dd>
+
+  <dt>delegate_agent</dt>
+  <dd>委派代理（Q-agent 预留的多 agent 委派工具种）</dd>
+
+  <dt>task-notification</dt>
+  <dd>任务通知（Claude Code 子 agent 完成后注入主上下文的 XML 块）</dd>
+
+  <dt>dataclass</dt>
+  <dd>数据类（Python 标准库 <code>@dataclass</code> 装饰器定义的轻量数据容器）</dd>
+
+  <dt>typing.Protocol</dt>
+  <dd>协议类型（Python 标准库定义接口协议的类型）</dd>
+
+  <dt>QThread / signal / slot</dt>
+  <dd>Qt 线程 / 信号 / 槽（PySide6 异步通信机制）</dd>
+
+  <dt>ChatWorker</dt>
+  <dd>聊天工作线程（Q-agent v0.0.8 落地的 QThread 子类，承载 LLM 流式调用）</dd>
+
+  <dt>OrchestratorWorker</dt>
+  <dd>编排器工作线程（v0.0.20 预建的 QThread 子类，包装 Orchestrator.run_turn）</dd>
+
+  <dt>stop_flag</dt>
+  <dd>停止标志（用户取消时设置，循环每轮检查的布尔值）</dd>
+
+  <dt>objectName</dt>
+  <dd>Qt 对象名（QSS 样式选择器匹配依据，改 objectName 会导致样式失配）</dd>
+
+  <dt>ADR</dt>
+  <dd>架构决策记录（Architecture Decision Record，本项目存 memory/ADR架构决策记录.md）</dd>
+
+  <dt>glob pattern</dt>
+  <dd>通配符模式（如 <code>*</code> 匹配任意，<code>orchestrator-*</code> 匹配前缀）</dd>
+
+  <dt>circuit breaker</dt>
+  <dd>熔断器（连续失败达阈值后停止重试的机制）</dd>
+
+  <dt>sanitizer</dt>
+  <dd>清洗器（修复非标准 LLM 输出的过滤器）</dd>
+
+  <dt>NDJSON</dt>
+  <dd>换行分隔 JSON（Newline Delimited JSON，Ollama 流式输出格式，每行一个 JSON 对象）</dd>
+
+  <dt>MCP</dt>
+  <dd>Model Context Protocol（模型上下文协议，Anthropic 提出的工具调用标准，Q-agent 暂不接）</dd>
+
+  <dt>LSP</dt>
+  <dd>Language Server Protocol（语言服务器协议，代码编辑器用的协议，Q-agent 不接）</dd>
+
+  <dt>ACP</dt>
+  <dd>Agent Client Protocol（代理客户端协议，OpenClaw 用的执行后端协议，Q-agent 不采纳）</dd>
+</dl>
+</div>
+
+</div>
+</section>
+
+<footer>
+  报告基于 G:/agent/市场调研/05-拆解报告/ 下 4 份拆解报告生成 ｜
+  调研源码：01-ClaudeCode/ 02-OpenClaw/ 03-Codex/ 04-OpenCode/ ｜
+  实施路线：v0.0.18 编排层骨架 → v0.0.19 工具层实化 → v0.0.20 UI 接通
+</footer>
+
+</div>
+</body>
+</html>
