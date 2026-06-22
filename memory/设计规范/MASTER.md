@@ -40,7 +40,47 @@
 | Muted | `#272F42` | 占位符 / 禁用态 / 弱化文字 |
 | Border | `#475569` | 边框 / 分隔线 |
 | Destructive | `#EF4444` | 删除 / 危险操作 |
-| Ring | `#1E293B` | 焦点环 |
+| Ring | `#3B82F6` | 焦点环（亮蓝，在 Background `#0F172A` 上可见；2026-06-22 规则审查修订，原 `#1E293B` 与 Primary 同色导致不可见） |
+
+## 扩展调色板（v0.0.4+ 新增 UI 元素用色，2026-06-22 补录）
+
+主 10 个语义 token 之外的扩展色，用于多元素区分场景。所有扩展色在 Background `#0F172A` 上均达 WCAG AA 对比度。
+
+### 模型名 8 色调色板（v0.0.4 起，chat_page 按模型名 hash 取色）
+
+同一模型每次显示同色（crc32 mod 8），8 色高对比：
+
+| 索引 | Hex | 中文色名 | 用途 |
+|------|-----|---------|------|
+| 0 | `#22C55E` | 绿 | 模型名标签色 1 |
+| 1 | `#3B82F6` | 蓝 | 模型名标签色 2 |
+| 2 | `#A855F7` | 紫 | 模型名标签色 3 |
+| 3 | `#EC4899` | 粉 | 模型名标签色 4 |
+| 4 | `#F97316` | 橙 | 模型名标签色 5 |
+| 5 | `#14B8A6` | 青 | 模型名标签色 6 |
+| 6 | `#EAB308` | 黄 | 模型名标签色 7 |
+| 7 | `#6366F1` | 靛 | 模型名标签色 8 |
+
+碰撞概率 1/8 可接受；如需扩展可升至 16 色。
+
+### 硬件监控 6 色（v0.0.12 起，hardware_monitor 折线图）
+
+| 指标 | Hex | 中文色名 | 备注 |
+|------|-----|---------|------|
+| CPU 占用率 | `#3B82F6` | 蓝 | 折线 1 |
+| GPU 利用率 | `#22C55E` | 绿 | 折线 2 |
+| 显存占用率 | `#A855F7` | 紫 | 折线 3 |
+| 内存占用率 | `#F97316` | 橙 | 折线 4 |
+| CPU 温度 | `#94A3B8` | 灰蓝 | Windows 永远 N/A，灰色占位横线 |
+| GPU 温度 | `#EF4444` | 红 | 折线 6 |
+| 图例/y 轴文本 | `#94A3B8` | 灰蓝 | 与 CPU 温度同色，弱化非数据元素 |
+
+### 中性灰阶（v0.0.4 起，toolbar 分组头/占位项）
+
+| 用途 | Hex | 出现位置 |
+|------|-----|---------|
+| 分组头 disabled 灰 | `#94A3B8` | toolbar 下拉框"本地模型 / Ollama Cloud / 云端预置"分组头 |
+| 占位项灰 | `#64748B` | toolbar 下拉框"未发现本地 LLM"占位项 |
 
 ## Typography
 
@@ -67,7 +107,7 @@
 **QSS 翻译**：
 - 光晕用 `QGraphicsDropShadowEffect`（Qt 程序化设置，QSS 不支持 box-shadow）
 - 过渡用 `QPropertyAnimation`（QSS 不支持 transition）
-- 焦点可见：`outline: 2px solid #1E293B`（QSS 支持 outline）
+- 焦点可见：`outline: 2px solid #3B82F6`（QSS 支持 outline；亮蓝在暗背景上可见）
 
 ## Anti-patterns（避免）
 
@@ -127,12 +167,16 @@
 ### Buttons
 - 主按钮：background Primary `#1E293B`，text On-Primary `#FFFFFF`，padding 8/16px，radius 6px
 - CTA 按钮：background Accent `#22C55E`，text On-Primary（白），其他同主按钮
+  - hover：`#16A34A`（Accent 深一档）
+  - pressed：`#15803D`（Accent 再深一档）
+  - disabled：background Muted `#272F42` + color Border `#475569`
+  - 实际代码 padding 10/20px / radius 8px（v0.0.4 起微调，比规范略大更柔和，可视觉等价接受）
 - 次按钮：background transparent，border Border `#475569`，text Foreground `#F8FAFC`
 
 ### Inputs
 - 背景 Muted `#272F42`
 - 边框 Border `#475569`
-- 焦点边框 Ring `#1E293B`（2px outline）
+- 焦点边框 Ring `#3B82F6`（2px outline，亮蓝在暗背景上可见）
 - 文字 Foreground `#F8FAFC`
 - 占位符 Muted `#272F42`（弱化）
 
@@ -146,6 +190,81 @@
 - 背景 Secondary `#334155`
 - 阴影 xl
 - 居中显示
+
+## Component Specs 补录（v0.0.2~v0.0.17 新增 UI 元素，2026-06-22 补录）
+
+### 模型下拉框 QComboBox（v0.0.4）
+- 背景 Muted `#272F42`，边框 Border `#475569`
+- 分组头（QStandardItemModel disabled 项）：color `#94A3B8`（中性灰），bold，不可选中
+- 占位项（"未发现本地 LLM"）：color `#64748B`（占位灰），italic
+- 三组结构：本地模型 / Ollama Cloud / 云端预置
+- 检测失败时仅显示占位项，不加云端组
+
+### AI 气泡模型名小标签 QLabel#ModelLabel（v0.0.4）
+- 字号 11px，color 取自"模型名 8 色调色板"（按模型名 crc32 hash）
+- 位于 AI 气泡上方，与气泡左对齐
+- 同一模型每次显示同色
+
+### 多行输入框 QTextEdit#ChatInput（v0.0.6）
+- 背景 Muted `#272F42`，边框 Border `#475569`
+- 圆角 8px，padding 10/14px
+- 动态高度：documentSizeChanged 信号驱动，[44, 200] px 钳制 setFixedHeight
+- 文字 Foreground `#F8FAFC`，占位符 Muted
+- selection-background-color Accent `#22C55E`
+
+### 错误气泡 QLabel#MessageError（v0.0.8）
+- **当前代码用亮色 `#FEE2E2` 背景 + `#DC2626` 文字，与 OLED 暗色基调冲突**（待优化项）
+- 建议改为暗色版本：background `#7F1D1D`（Destructive 深一档）+ color `#FECACA`（浅红文字）
+- 圆角 10px，padding 10/14px（与用户/AI 气泡一致）
+
+### 切换模型系统提示气泡 QLabel#MessageSystem（v0.0.9）
+- 居中显示，italic
+- color Muted `#272F42`（弱化，非主消息流一部分）
+- 无气泡背景，仅文字
+- 首次自动选择时抑制（保留初始问候）
+
+### 加载指示器 LoadingDots（v0.0.10）
+- 三点跳动，QTimer 80ms tick，1.6s 一周期
+- 每点偏移 60 度形成流动彩虹（HSV 色相随时间流动）
+- alpha=180（约 70% 透明度），与背景融合不刺眼
+- dot_size=8px（固定，不随 DPI 缩放——待优化项）
+- 流动彩虹色相独立于"模型名 hash 色"色彩系统（设计取舍，非冲突）
+- 嵌入 pending AI 气泡内部，首个 chunk 到达时移除
+
+### 释放模型确认对话框 QMessageBox（v0.0.11）
+- 标准 QMessageBox.question 复用
+- 标题"释放模型"，正文"确认释放 XXX 出 Ollama 内存？"
+- 按钮组合：Yes/No（Yes 触发 release_model）
+- release_model 后状态栏文案："API 验证通过，VRAM 已归还，任务管理器进程级 GPU 内存可能延迟显示"
+
+### 硬件监控 MonitorCell（v0.0.12/v0.0.15）
+- 单指标 cell 自绘：折线图 + 图例 + 当前数值 + 单位
+- cell 整体背景 `#0F172A`（Background）
+- plot 坐标系背景 `#1E293B`（Primary，与 cell 背景区分）
+- 网格线 `#334155`（Secondary，5 条 0/25/50/75/100）
+- y 轴：左侧 28px 刻度标签 0/25/50/75/100 + 单位 ° 或 % + 竖线
+- 折线颜色取自"硬件监控 6 色"
+- None 段断开不连线（如 CPU 温度 Windows 永远 N/A → 灰色占位横线）
+- 数值显示格式：百分比 `f"{x:.0f}%"`，温度 `f"{x:.0f}°C"`
+- 标签中文：CPU 占用率 / GPU 利用率 / 显存占用率 / 内存占用率 / CPU 温度 / GPU 温度
+
+### 工具栏图标按钮 QToolButton（v0.0.16/v0.0.17）
+- 默认态：transparent 背景 + Foreground 文字/图标
+- 悬停态：Secondary `#334155` 背景
+- 按下态：Primary `#1E293B` 背景
+- 禁用态：Muted `#272F42` 背景 + Border `#475569` 文字
+- 图标 16x16 SVG（Lucide 风格，单色描边继承 currentColor）
+- 已实现按钮：new-chat / clear / about / refresh / release / cancel
+- 取消按钮（v0.0.17）位置：模型下拉框右侧（不在 _build_actions 末尾）
+
+### 硬件监控独立窗口 HardwareMonitorWindow（v0.0.15）
+- 独立顶级窗口（Qt.WindowType.Window flag，不依附主窗口）
+- Windows 任务栏独立条目 + 自带标题栏 X 关闭按钮
+- 固定尺寸 620×520（未来可加可拖拽 resize）
+- 标题"硬件监控"
+- 2×3 网格 6 个 MonitorCell
+- 由 menu_bar"监控"菜单 triggered 弹出（Ctrl+M 打开，Ctrl+W 关闭）
+- closeEvent emit closed 信号让 MainWindow 清空 _hw_window 引用
 
 ## Q-agent UI 实施映射
 
@@ -165,7 +284,7 @@
 | 菜单栏 | QMenuBar | Primary 背景 + Foreground 文字 |
 | 设置复选框 | QCheckBox | Foreground 文字 + Accent 勾选 |
 | 设置下拉 | QComboBox | Muted 背景 + Border 边框 |
-| 焦点环 | 所有可聚焦控件 | outline Ring `#1E293B` 2px |
+| 焦点环 | 所有可聚焦控件 | outline Ring `#3B82F6` 2px |
 
 ## 升级路径
 
