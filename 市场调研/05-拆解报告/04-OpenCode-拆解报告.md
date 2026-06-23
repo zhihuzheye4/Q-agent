@@ -195,7 +195,7 @@ agent 配置可在 `opencode.json` 的 `agent` 字段覆盖（`agent.ts:265-292`
 3. **HTTP server / ACP / sync / share**：Q-agent 是本地桌面工具，不需要多用户协同 / 远程同步 / 会话分享。OpenCode 的 `server/` / `acp/` / `sync/` / `share/` / `account/` / `auth/` / `installation/` 等模块应全部跳过。
 4. **多 provider 抽象层**：Q-agent 本地 LLM 优先，云端按需启用且不硬编码云端 key。OpenCode 1975 行的 `provider/provider.ts` + `provider/transform.ts` + `provider/auth.ts` + `provider/model-status.ts` 大部分是为 20+ 家云端 provider 的差异填坑，Q-agent 只需一个 `LLMClient` 抽象（local / openai-compatible / anthropic 三种足够）。
 5. **`EventV2Bridge` + 双写迁移**：v1/v2 双写是历史包袱，Q-agent 全新项目无需复制。
-6. **`Plugin.Service` 全链钩子**：Q-agent 不需要插件系统——贴纸式开发原则下，扩展靠新增 widget 文件 + 一行挂载，不需要运行时插件加载。OpenCode 的 `plugin.trigger(...)` 散布在几十处，是高度可扩展但也是高度复杂的设计。
+6. **`Plugin.Service` 全链钩子**：Q-agent 不需要插件系统——模块化开发原则下，扩展靠新增 widget 文件 + 一行挂载，不需要运行时插件加载。OpenCode 的 `plugin.trigger(...)` 散布在几十处，是高度可扩展但也是高度复杂的设计。
 7. **BackgroundJob 后台 subagent**：Q-agent 单人桌面，subagent 后台执行意义有限（用户就一个，等结果就好）。OpenCode 的 `experimentalBackgroundSubagents` flag + `BackgroundJob` + WebSocket 通知机制对 Q-agent 过度设计。
 8. **GitLab Workflow / DWS / WebSocket executor**：企业级特化逻辑，Q-agent 完全用不到。
 9. **`permission` glob 引擎的 `ask` 三态**：Q-agent 用户不认识英文，"ask" 三态对单用户桌面应用是多余交互——直接 allow / deny + 危险命令黑名单 + 项目根保护就够（参考 CLAUDE.md 第五节基本安全规则）。OpenCode 的 230 行 `permission` 模块可压缩到 50 行 Python。

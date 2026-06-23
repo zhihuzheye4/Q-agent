@@ -24,7 +24,7 @@ Left Panel（v0.0.15 简化）：
     +---------------+
     整体 fixed 200px 宽，放进水平布局左侧
 
-v0.0.15 变更（贴纸式迁移，CLAUDE.md 第二十一节）：
+v0.0.15 变更（模块化迁移，CLAUDE.md 第二十一节）：
     - 硬件监控从 left panel 底部常驻 → 独立窗口（menu_bar "监控"菜单 triggered 弹出）
     - left panel 只剩 sidebar（恢复 v0.0.9 前的极简结构）
     - MainWindow 新增 _open_hardware_monitor() + 持有 _hw_window 引用，closeEvent 关闭
@@ -81,7 +81,7 @@ class MainWindow(QMainWindow):
         h_layout.setContentsMargins(0, 0, 0, 0)
         h_layout.setSpacing(0)
 
-        # left panel（仅 sidebar，贴纸式挂载点保留供未来扩展）
+        # left panel（仅 sidebar，模块化挂载点保留供未来扩展）
         left_panel = QWidget(central)
         left_panel.setFixedWidth(LEFT_PANEL_WIDTH)
         left_layout = QVBoxLayout(left_panel)

@@ -5,7 +5,7 @@
     - 监控菜单（v0.0.15 新增）：打开监控 + 关闭监控（triggered → callback）
     - 帮助菜单：关于（QMessageBox 弹窗）
 
-v0.0.15 贴纸式扩展（CLAUDE.md 第二十一节）：
+v0.0.15 模块化扩展（CLAUDE.md 第二十一节）：
     - monitor_callback / close_callback 作为构造参数注入，菜单只负责触发回调
     - 不侵入既有 _build_file_menu / _build_help_menu，新增 _build_monitor_menu 独立方法
 

@@ -394,7 +394,7 @@
   <li><strong>本地 LLM 优先</strong>：OpenCode 的 20+ provider 抽象层 + OpenClaw 的多 backend（CLI/ACP/embedded）不适用，Q-agent 只需 Ollama + 云端 stub</li>
   <li><strong>单人桌面应用</strong>：OpenClaw 的多通道（WhatsApp/Telegram/Slack 等）+ gateway（网关）+ daemon（守护进程）+ cron（定时任务）+ multi-agent routing（多代理路由）全部不适用</li>
   <li><strong>Python 实现</strong>：Codex 的 Rust 强类型 trait + OpenCode 的 Effect 框架 + Claude Code 的 TypeScript 都不适用，需要 Python 等价物（dataclass + typing.Protocol）</li>
-  <li><strong>贴纸式开发原则</strong>（CLAUDE.md 第二十一节）：编排层要做成独立模块，不侵入既有 UI/LLM/工具层</li>
+  <li><strong>模块化开发原则</strong>（CLAUDE.md 第二十一节）：编排层要做成独立模块，不侵入既有 UI/LLM/工具层</li>
   <li><strong>零第三方依赖起步</strong>：不引入 Effect / SQLite / pydantic 等运行时依赖，只用标准库</li>
 </ol>
 
@@ -454,7 +454,7 @@
   <li><strong>多 bool 终止组合</strong>：循环终止靠多个布尔值组合判断，不靠单一条件</li>
   <li><strong>软截止优先于硬中断</strong>：达 max_steps 时先给 LLM 一条 prefill 提示"请总结收尾"，让 LLM 自然收尾；连续错误超阈值才硬中断</li>
   <li><strong>本地 LLM 防循环</strong>：doom_loop 检测连续 3 次相同工具相同输入强制终止（借鉴 OpenCode）</li>
-  <li><strong>贴纸式挂载</strong>：编排层独立模块，不侵入既有 UI/LLM/工具层，通过信号槽或回调连接</li>
+  <li><strong>模块化挂载</strong>：编排层独立模块，不侵入既有 UI/LLM/工具层，通过信号槽或回调连接</li>
   <li><strong>接口预留多 agent</strong>：当前只做单 agent，但 ToolCall 数据类型预留 <code>delegate_agent</code>（委派代理）种，未来扩展不破坏架构</li>
   <li><strong>零第三方依赖</strong>：编排层只用标准库（dataclass + typing.Protocol + threading），不引入 pydantic / Effect / asyncio 框架</li>
   <li><strong>可测试性优先</strong>：每个模块可独立单测，Orchestrator 用 mock LLM + mock tool 测试，不依赖真实 Ollama</li>
@@ -519,7 +519,7 @@
     q_agent.memory (运行期记忆 stub) (context 引用，v0.0.18 暂不接)</div>
 
 <div class="callout callout-warn">
-  <div class="callout-title">贴纸式约束</div>
+  <div class="callout-title">模块化约束</div>
   编排层模块只允许引用 UI/LLM/工具层的公开接口，不允许被这些层引用。Orchestrator 通过信号槽或回调把 turn 进度回传 UI（类似 ChatWorker 的 chunk/done 信号模式）。任何对既有 UI/LLM/工具模块的类继承/objectName/公开接口改动 = 架构级改动，必须先出方案让用户否决。
 </div>
 
@@ -1285,7 +1285,7 @@ class ContextManager:
         self._cache.append(msg)  # 本地缓存供 to_llm_format</code></pre>
 
 <div class="callout callout-warn">
-  <div class="callout-title">贴纸式约束</div>
+  <div class="callout-title">模块化约束</div>
   编排层只能引用其他层的公开接口，不允许被其他层反向引用。任何对 LLMClient / executor / ChatPage 类继承、objectName、公开接口的改动 = 架构级改动，必须先出方案让用户否决（CLAUDE.md 第二十一节）。
 </div>
 
@@ -1326,7 +1326,7 @@ class ContextManager:
 <h3>v0.0.20：UI 接通 + 用户可见能力</h3>
 <p>目标：UI 层 ChatWorker 改为调 Orchestrator，用户在 UI 上能看到"LLM 调用了 read_file 工具，结果如下"。</p>
 <ol>
-  <li>新建 <code>q_agent/ui/orchestrator_worker.py</code>：QThread 包 Orchestrator.run_turn，发 step/done/failed 信号（贴纸式挂载，不侵入 ChatWorker）</li>
+  <li>新建 <code>q_agent/ui/orchestrator_worker.py</code>：QThread 包 Orchestrator.run_turn，发 step/done/failed 信号（模块化挂载，不侵入 ChatWorker）</li>
   <li>ChatPage 加 <code>_on_orchestrator_step</code> slot：收到 step 信号时在气泡里追加工具调用提示</li>
   <li>ChatPage 改 chat 触发：从直接调 ChatWorker 改为先调 OrchestratorWorker，再 fallback 到 ChatWorker（兼容模式）</li>
   <li>工具调用 UI：气泡里显示 [调用工具: read_file(path=G:\test.txt)] + [结果: ...]</li>
@@ -1339,7 +1339,7 @@ class ContextManager:
   <div class="callout-title">关键风险</div>
   <ul>
     <li>v0.0.18 单测用 mock 跑通，v0.0.19 接真 LLM 真工具时可能出现 mock 未覆盖的边界情况 → 回滚到 v0.0.18 mock 模式，定位问题</li>
-    <li>v0.0.20 UI 接通可能影响 v0.0.17 的取消按钮等既有功能 → 必须按贴纸式原则独立挂载 OrchestratorWorker，不侵入 ChatWorker，可随时回滚</li>
+    <li>v0.0.20 UI 接通可能影响 v0.0.17 的取消按钮等既有功能 → 必须按模块化原则独立挂载 OrchestratorWorker，不侵入 ChatWorker，可随时回滚</li>
     <li>本地 LLM 输出格式可能与 Ollama 标准 NDJSON 有差异 → dispatcher.parse_response 需要容错</li>
   </ul>
 </div>
