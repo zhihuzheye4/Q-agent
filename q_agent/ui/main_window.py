@@ -39,8 +39,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QWidget
 
-    from q_agent.ui.tool_history_window import ToolHistoryWindow
-
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -72,7 +70,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Q-agent")
         self.resize(1200, 800)
         self._hw_window: HardwareMonitorWindow | None = None
-        self._tool_history_window: ToolHistoryWindow | None = None
         self._build_layout()
 
     def _build_layout(self) -> None:
@@ -144,15 +141,6 @@ class MainWindow(QMainWindow):
             close_callback=self._close_hardware_monitor,
         )
 
-        # v0.0.19 追加"工具"菜单：工具历史窗口（不动 MenuBar 既有结构）
-        from PySide6.QtGui import QAction
-
-        tools_menu = self.menuBar().addMenu("工具")
-        history_action = QAction("工具历史", self)
-        history_action.setShortcut("Ctrl+H")
-        history_action.triggered.connect(self._open_tool_history)
-        tools_menu.addAction(history_action)
-
         # 状态栏
         self.statusBar().showMessage("就绪")
 
@@ -187,15 +175,6 @@ class MainWindow(QMainWindow):
         if self._hw_window is not None:
             self._hw_window.close()
 
-    def _open_tool_history(self) -> None:
-        """v0.0.19 新增：菜单"工具 → 工具历史"triggered → 实例化 + show ToolHistoryWindow。"""
-        if self._tool_history_window is None:
-            from q_agent.ui.tool_history_window import ToolHistoryWindow
-
-            self._tool_history_window = ToolHistoryWindow()
-        self._tool_history_window.show()
-        self._tool_history_window.raise_()
-
     def closeEvent(self, event: QCloseEvent) -> None:
         """主窗口关闭时优雅关闭硬件监控独立窗口（如有），避免 worker 线程悬挂。
 
@@ -203,8 +182,6 @@ class MainWindow(QMainWindow):
         """
         if self._hw_window is not None:
             self._hw_window.close()
-        if self._tool_history_window is not None:
-            self._tool_history_window.close()
         super().closeEvent(event)
 
     def _sync_send_enabled(self) -> None:
