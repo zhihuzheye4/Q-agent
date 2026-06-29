@@ -66,6 +66,26 @@
       "name": "stop-active",
       "file": "stop-active.svg",
       "level": "UI"
+    },
+    {
+      "name": "tool-pending-active",
+      "file": "tool-pending-active.svg",
+      "level": "UI"
+    },
+    {
+      "name": "tool-success-active",
+      "file": "tool-success-active.svg",
+      "level": "UI"
+    },
+    {
+      "name": "tool-failed-active",
+      "file": "tool-failed-active.svg",
+      "level": "UI"
+    },
+    {
+      "name": "tool-cancelled-active",
+      "file": "tool-cancelled-active.svg",
+      "level": "UI"
     }
   ]
 }

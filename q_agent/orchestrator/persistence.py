@@ -91,6 +91,48 @@ class SessionStore:
 
     CREATE INDEX IF NOT EXISTS idx_compaction_records_session
         ON compaction_records(session_id, triggered_at);
+
+    -- v0.0.19 工具调用层持久化：tool_calls + tool_audit 两表
+    CREATE TABLE IF NOT EXISTS tool_calls (
+        call_id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        message_id TEXT,
+        tool_name TEXT NOT NULL,
+        input_json TEXT,
+        output_text TEXT,
+        output_path TEXT,
+        status TEXT NOT NULL,
+        error_kind TEXT,
+        started_at TEXT NOT NULL,
+        duration_ms INTEGER
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_tool_calls_session
+        ON tool_calls(session_id);
+
+    CREATE INDEX IF NOT EXISTS idx_tool_calls_started
+        ON tool_calls(started_at);
+
+    CREATE TABLE IF NOT EXISTS tool_audit (
+        audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        call_id TEXT NOT NULL,
+        tool_name TEXT NOT NULL,
+        permission_level TEXT NOT NULL,
+        args_hash TEXT NOT NULL,
+        approval_mode TEXT,
+        status TEXT NOT NULL,
+        error_kind TEXT,
+        started_at TEXT NOT NULL,
+        input_summary TEXT,
+        output_summary TEXT,
+        FOREIGN KEY (call_id) REFERENCES tool_calls(call_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_tool_audit_call
+        ON tool_audit(call_id);
+
+    CREATE INDEX IF NOT EXISTS idx_tool_audit_started
+        ON tool_audit(started_at);
     """
 
     def __init__(self, db_path: Path) -> None:
@@ -386,3 +428,109 @@ class SessionStore:
             )
             for r in rows
         ]
+
+    # ---- v0.0.19 工具调用层：tool_calls / tool_audit 表 CRUD ----
+
+    def insert_tool_call(
+        self,
+        call_id: str,
+        session_id: str,
+        tool_name: str,
+        status: str,
+        started_at: str,
+        message_id: str | None = None,
+        input_json: str | None = None,
+        output_text: str | None = None,
+        output_path: str | None = None,
+        error_kind: str | None = None,
+        duration_ms: int | None = None,
+    ) -> None:
+        """插入一条工具调用记录。"""
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO tool_calls (call_id, session_id, message_id, tool_name, "
+                "input_json, output_text, output_path, status, error_kind, "
+                "started_at, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    call_id,
+                    session_id,
+                    message_id,
+                    tool_name,
+                    input_json,
+                    output_text,
+                    output_path,
+                    status,
+                    error_kind,
+                    started_at,
+                    duration_ms,
+                ),
+            )
+            self._conn.commit()
+
+    def update_tool_call_output(self, call_id: str, output_text: str) -> None:
+        """更新工具调用输出文本（L1/L2/L3 降级时用）。"""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE tool_calls SET output_text = ? WHERE call_id = ?",
+                (output_text, call_id),
+            )
+            self._conn.commit()
+
+    def load_tool_calls(self, session_id: str) -> list[sqlite3.Row]:
+        """列出会话所有工具调用记录（按时间升序）。"""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT call_id, session_id, message_id, tool_name, input_json, "
+                "output_text, output_path, status, error_kind, started_at, duration_ms "
+                "FROM tool_calls WHERE session_id = ? ORDER BY started_at ASC",
+                (session_id,),
+            ).fetchall()
+        return list(rows)
+
+    def load_all_tool_calls(self, limit: int = 200) -> list[sqlite3.Row]:
+        """列出所有会话工具调用记录（按时间降序，limit 默认 200）。
+
+        供 ToolHistoryWindow 重建历史列表用。
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT call_id, session_id, message_id, tool_name, input_json, "
+                "output_text, output_path, status, error_kind, started_at, duration_ms "
+                "FROM tool_calls ORDER BY started_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return list(rows)
+
+    def insert_audit(
+        self,
+        call_id: str,
+        tool_name: str,
+        permission_level: str,
+        args_hash: str,
+        status: str,
+        started_at: str,
+        approval_mode: str | None = None,
+        error_kind: str | None = None,
+        input_summary: str | None = None,
+        output_summary: str | None = None,
+    ) -> None:
+        """插入一条审计记录。"""
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO tool_audit (call_id, tool_name, permission_level, args_hash, "
+                "approval_mode, status, error_kind, started_at, input_summary, "
+                "output_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    call_id,
+                    tool_name,
+                    permission_level,
+                    args_hash,
+                    approval_mode,
+                    status,
+                    error_kind,
+                    started_at,
+                    input_summary,
+                    output_summary,
+                ),
+            )
+            self._conn.commit()

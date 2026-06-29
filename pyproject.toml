@@ -1,6 +1,6 @@
 [project]
 name = "q-agent"
-version = "0.0.18"
+version = "0.0.19"
 description = "类似 Claude Code 的桌面端 AI 工具，对接本地 LLM"
 requires-python = ">=3.10"
 dependencies = []

@@ -394,6 +394,54 @@ def icon_refresh_active() -> str:
     return render_svg(body)
 
 
+def icon_tool_pending_active() -> str:
+    """工具气泡：执行中（蓝色齿轮，#4A9FFA）"""
+    body = group(
+        [
+            circle(12, 12, 9, **{"stroke": "#4A9FFA"}),
+            path("M12 6v3", **{"stroke": "#4A9FFA"}),
+            path("M12 15v3", **{"stroke": "#4A9FFA"}),
+            path("M6 12h3", **{"stroke": "#4A9FFA"}),
+            path("M15 12h3", **{"stroke": "#4A9FFA"}),
+        ]
+    )
+    return render_svg(body)
+
+
+def icon_tool_success_active() -> str:
+    """工具气泡：成功（绿色圆勾，#3FB950）"""
+    body = group(
+        [
+            circle(12, 12, 9, **{"stroke": "#3FB950"}),
+            path("M8 12l3 3 5-6", **{"stroke": "#3FB950"}),
+        ]
+    )
+    return render_svg(body)
+
+
+def icon_tool_failed_active() -> str:
+    """工具气泡：失败（红色圆叉，#F85149）"""
+    body = group(
+        [
+            circle(12, 12, 9, **{"stroke": "#F85149"}),
+            path("M9 9l6 6", **{"stroke": "#F85149"}),
+            path("M15 9l-6 6", **{"stroke": "#F85149"}),
+        ]
+    )
+    return render_svg(body)
+
+
+def icon_tool_cancelled_active() -> str:
+    """工具气泡：取消（灰色圆圈横线，#8B949E）"""
+    body = group(
+        [
+            circle(12, 12, 9, **{"stroke": "#8B949E"}),
+            path("M8 12h8", **{"stroke": "#8B949E"}),
+        ]
+    )
+    return render_svg(body)
+
+
 # ===== 图标注册表 =====
 
 
@@ -413,6 +461,11 @@ ICONS: list[tuple[str, str, Callable[[], str]]] = [
     ("about-active", "UI", icon_about_active),
     ("refresh-active", "UI", icon_refresh_active),
     ("stop-active", "UI", icon_stop_active),
+    # v0.0.19 工具气泡 4 状态图标
+    ("tool-pending-active", "UI", icon_tool_pending_active),
+    ("tool-success-active", "UI", icon_tool_success_active),
+    ("tool-failed-active", "UI", icon_tool_failed_active),
+    ("tool-cancelled-active", "UI", icon_tool_cancelled_active),
 ]
 
 

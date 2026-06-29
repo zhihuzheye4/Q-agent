@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from q_agent.ui.chat_worker import ChatWorker
 from q_agent.ui.loading_dots import LoadingDots
+from q_agent.ui.tool_bubble import ToolBubble
 
 # 气泡最大宽度占容器可用宽度的比例（长发言友好，短发言按内容自适应）
 BUBBLE_WIDTH_RATIO = 0.92
@@ -175,6 +176,14 @@ class ChatPage(QWidget):
 
         self.scroll_area.setWidget(self.messages_container)
         layout.addWidget(self.scroll_area, stretch=1)
+
+        # v0.0.19 工具气泡 widget 挂载（最小侵入：独立挂到外层 layout，
+        # 不侵入 messages_layout，避免与既有 _clear_messages 逻辑冲突）
+        # v0.0.20 编排层接通后取消注释信号连接触发
+        self.tool_bubble = ToolBubble(self)
+        layout.addWidget(self.tool_bubble)
+        # self.chat_worker.tool_call_started.connect(self.tool_bubble.on_started)
+        # self.chat_worker.tool_call_finished.connect(self.tool_bubble.on_finished)
 
         # 下方：输入框 + 发送按钮（多行 QTextEdit 支持长发言）
         input_bar = QWidget(self)
