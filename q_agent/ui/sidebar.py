@@ -1,10 +1,10 @@
-"""侧边栏：4 tab 切换（v0.0.1 基座，v0.0.14 恢复 QListWidget 子类原貌）。
+"""侧边栏：4 tab 切换（v0.0.1 既有模块，v0.0.14 恢复 QListWidget 子类原貌）。
 
 v0.0.14 回退说明：
     v0.0.12 曾把 Sidebar 从 QListWidget 改为 QFrame 容器内嵌 HardwareMonitor，
-    违反贴纸式开发原则（CLAUDE.md 第二十一节）——新功能侵入既有模块导致
+    违反模块化开发原则（CLAUDE.md 第二十一节）——新功能侵入既有模块导致
     QSS 选择器失配、tooltip 异常、连锁破坏。v0.0.14 回退到 v0.0.9 QListWidget
-    子类原貌，HardwareMonitor 改由 MainWindow left panel 独立挂载（贴纸式）。
+    子类原貌，HardwareMonitor 改由 MainWindow left panel 独立挂载（模块化）。
 
 4 个 tab：
     对话 / 技能 / 记忆 / 设置
@@ -42,7 +42,7 @@ SIDEBAR_WIDTH = 200
 
 
 class Sidebar(QListWidget):
-    """侧边栏 tab 切换组件（v0.0.14 贴纸式回退：纯 QListWidget，不含硬件监控）。
+    """侧边栏 tab 切换组件（v0.0.14 模块化回退：纯 QListWidget，不含硬件监控）。
 
     硬件监控由 MainWindow 在 left panel 中独立挂载，不侵入本组件。
     """

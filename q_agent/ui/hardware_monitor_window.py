@@ -1,4 +1,4 @@
-"""硬件监控独立窗口（v0.0.15 新增，贴纸式）。
+"""硬件监控独立窗口（v0.0.15 新增，模块化）。
 
 由 menu_bar "监控"菜单 triggered 触发，MainWindow._open_hardware_monitor 实例化 + show()。
 
@@ -16,7 +16,7 @@
     | [N/A 横线] | [折线图]            |
     +-----------+----------------------+
 
-贴纸式原则（CLAUDE.md 第二十一节）：
+模块化原则（CLAUDE.md 第二十一节）：
 - 独立 widget 文件，自己管渲染 + worker 生命周期
 - MainWindow 一行实例化 + show() 挂载，关闭时 closeEvent 优雅停止 worker
 - 不侵入任何既有模块内部

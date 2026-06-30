@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>v0.0.19 工具层市场调研报告 — Q-agent</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --surface: #1a2028;
+    --surface-2: #232b36;
+    --border: #2d3744;
+    --text: #e4e7eb;
+    --text-dim: #9aa5b1;
+    --accent: #4fd1c5;
+    --accent-2: #f687b3;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --ok: #34d399;
+    --code-bg: #161b22;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+  }
+  .container { max-width: 1180px; margin: 0 auto; padding: 40px 32px 80px; }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 28px;
+    margin-bottom: 32px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .meta { color: var(--text-dim); font-size: 13px; }
+  .meta span { margin-right: 18px; }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+  }
+  .toc h3 { margin: 0 0 12px 0; font-size: 15px; color: var(--accent); }
+  .toc ul { margin: 0; padding-left: 20px; }
+  .toc li { margin: 4px 0; }
+  .toc a { color: var(--text-dim); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  h2 {
+    font-size: 22px;
+    margin: 48px 0 18px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text);
+  }
+  h3 {
+    font-size: 17px;
+    margin: 28px 0 12px 0;
+    color: var(--accent);
+  }
+  h4 {
+    font-size: 15px;
+    margin: 18px 0 8px 0;
+    color: var(--text);
+  }
+  p { margin: 10px 0; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 16px 0;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+    min-width: 900px;
+  }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: var(--surface-2);
+    color: var(--accent);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+  }
+  tr:hover td { background: var(--surface); }
+  td:first-child { color: var(--text); font-weight: 600; white-space: nowrap; }
+
+  .framework {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 14px 0;
+  }
+  .framework h4 { margin: 0 0 8px 0; color: var(--accent); font-size: 16px; }
+  .framework p { margin: 6px 0; font-size: 14px; }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warn);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .callout.ok { border-left-color: var(--ok); }
+  .callout.danger { border-left-color: var(--danger); }
+  .callout.info { border-left-color: var(--accent); }
+  .callout-title { font-weight: 600; margin-bottom: 6px; }
+
+  .prio-p0 { color: var(--ok); font-weight: 600; }
+  .prio-p1 { color: var(--accent); font-weight: 600; }
+  .prio-p2 { color: var(--warn); font-weight: 600; }
+  .prio-p3 { color: var(--danger); font-weight: 600; }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+    color: var(--accent);
+    font-family: "Consolas", "Courier New", monospace;
+  }
+
+  .refs {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-top: 16px;
+  }
+  .refs h4 { color: var(--accent); margin-top: 18px; }
+  .refs ul { font-size: 13px; color: var(--text-dim); }
+  .refs a { color: var(--accent); text-decoration: none; word-break: break-all; }
+  .refs a:hover { text-decoration: underline; }
+
+  .conclusion {
+    background: linear-gradient(135deg, rgba(79,209,197,0.08), rgba(246,135,179,0.08));
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin-top: 32px;
+  }
+  .conclusion h3 { margin-top: 0; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    margin-right: 4px;
+  }
+  .tag.ok { background: rgba(52,211,153,0.15); color: var(--ok); }
+  .tag.warn { background: rgba(251,191,36,0.15); color: var(--warn); }
+  .tag.danger { background: rgba(248,113,113,0.15); color: var(--danger); }
+  .tag.info { background: rgba(79,209,197,0.15); color: var(--accent); }
+
+  .question-list li {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 8px 0;
+    list-style: none;
+    border-left: 3px solid var(--warn);
+  }
+  .question-list {
+    padding-left: 0;
+    counter-reset: q-counter;
+  }
+  .question-list li::before {
+    content: "Q" counter(q-counter);
+    counter-increment: q-counter;
+    display: inline-block;
+    background: var(--warn);
+    color: var(--bg);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+  }
+
+  .method-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 14px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>v0.0.19 工具层实化前置调研：主流 AI / Agent 框架工具层对比报告</h1>
+  <div class="meta">
+    <span>项目：Q-agent</span>
+    <span>版本：v0.0.19 前置调研</span>
+    <span>日期：2026-06-29</span>
+    <span>覆盖：24 个框架 + 80+ 条权威来源</span>
+    <span>调研方式：单 agent 一次性产出</span>
+  </div>
+</header>
+
+<div class="toc">
+  <h3>目录</h3>
+  <ul>
+    <li><a href="#sec0">零、调研方式说明（单 agent vs 多 agent）</a></li>
+    <li><a href="#sec1">一、总览矩阵</a></li>
+    <li><a href="#sec2">二、各框架工具层深度分析（24 个）</a></li>
+    <li><a href="#sec3">三、模式归纳（跨框架共性）</a></li>
+    <li><a href="#sec4">四、对 Q-agent 的启示</a></li>
+    <li><a href="#sec5">五、工具功能清单（已纳入 / 已放弃 / 理由）</a></li>
+    <li><a href="#sec6">六、用户应该提但没提的问题（决策清单）</a></li>
+    <li><a href="#sec7">七、引用来源</a></li>
+  </ul>
+</div>
+
+<h2 id="sec0">零、调研方式说明</h2>
+
+<div class="callout info">
+  <div class="callout-title">本次调研为单 agent 一次性产出，非多 agent 协作结果</div>
+  <p>具体做法：派了 1 个 general-purpose agent，让它用 WebSearch / WebFetch 实际查 24 个框架的官方文档和 GitHub 源码，整理成报告归档到 <code>memory/方案/方案_2026-06-29_1430_v0.0.19工具层市场调研.md</code>。整个过程没有多 agent 编排（没做"分头调研 + 交叉审查 + 综合仲裁"）。</p>
+</div>
+
+<div class="method-box">
+  <h4>单 agent 调研的局限性</h4>
+  <ul>
+    <li><b>视角单一</b>：所有维度由同一个 agent 顺次扫，没有交叉验证，可能漏掉某框架的某关键设计</li>
+    <li><b>深度受限</b>：单 agent token 预算有限，每个框架只能查 1-2 个权威源，无法穷尽源码细节</li>
+    <li><b>主观偏差</b>：归纳模式和对 Q-agent 的启示由单 agent 一次性给出，没有"反方意见"</li>
+    <li><b>耗时集中</b>：本次 agent 跑了约 9.6 分钟（27 次工具调用），全程串行</li>
+  </ul>
+</div>
+
+<div class="method-box">
+  <h4>多 agent 协作调研的备选方案（如需提升可信度可重做）</h4>
+  <ul>
+    <li><b>方案 A：分领域并行 + 综合</b>：4 个 agent 分头查（1 个查工具注册机制 / 1 个查安全策略 / 1 个查 MCP 支持 / 1 个查本地 LLM 适配），最后 1 个综合 agent 仲裁</li>
+    <li><b>方案 B：分框架并行 + 综合</b>：24 个框架分给 4-6 个 agent，每个 agent 查 4-6 个框架，最后综合</li>
+    <li><b>方案 C：红蓝对抗</b>：1 个 agent 出报告，1 个 agent 批判性审查找漏洞，第 3 个仲裁</li>
+    <li><b>方案 D：当前方案 + 复核</b>：保留单 agent 报告，另派 1 个 agent 只做"抽查 5 个框架验证准确性"</li>
+  </ul>
+  <p><b>建议</b>：v0.0.19 工具层是架构级决策，如果用户对单 agent 报告存疑，可采用方案 D（成本最低，10 分钟内出复核结果）。</p>
+</div>
+
+<h2 id="sec1">一、总览矩阵</h2>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+  <th>框架</th>
+  <th>工具注册机制</th>
+  <th>安全策略</th>
+  <th>MCP 支持</th>
+  <th>本地 LLM 支持</th>
+  <th>工具调用接口</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>Claude Code</td><td>buildTool() 工厂 + Zod schema + call()/checkPermissions()</td><td>7 级权限模式 + fail-closed 默认 + PreToolUse/PostToolUse 钩子</td><td>原生（首等公民）</td><td>不直接（云端 API）</td><td>OpenAI 风格 tool_use 块 + 程序化调用</td></tr>
+<tr><td>OpenAI Codex CLI</td><td>Rust ToolHandler trait + ShellHandler + ToolOrchestrator</td><td>landlock/seccomp（Unix）+ restricted token（Win）+ 审批缓存</td><td>原生</td><td>不直接</td><td>ResponseItem::FunctionCall + call_id</td></tr>
+<tr><td>OpenAI Agents SDK</td><td>@function_tool 装饰器 + griffe/pydantic 自动 schema</td><td>needs_approval + 输入/输出守卫 + strict_mode</td><td>HostedMCPTool + 自建 MCP</td><td>不直接</td><td>OpenAI function calling + Responses API</td></tr>
+<tr><td>Cursor</td><td>内置工具集（Read/Write/StrReplace/Grep/Glob/Shell/Browser/Task）</td><td>workspace 沙箱 + 包管理器白名单 + 用户审批提权</td><td>原生（~/.cursor/mcp.json）</td><td>不直接</td><td>function calling + apply model</td></tr>
+<tr><td>Aider</td><td>Coder 子类 + Commands 类 slash 命令 + edit_format 策略</td><td>无沙箱，.aiderignore + 只读文件集 + git 归属</td><td>无</td><td>litellm 任意模型</td><td>search-replace diff + /run shell</td></tr>
+<tr><td>Devin</td><td>Brain + Devbox 双层 + 三件套（shell/browser/editor）</td><td>Firecracker microVM + 域名白名单 + 4 级权限</td><td>不公开</td><td>不直接</td><td>CoT + 递归 agentic loop</td></tr>
+<tr><td>GitHub Copilot Agent</td><td>内置工具 + .agent.md 配置 + 工具别名</td><td>3 级审批（Default/Bypass/Autopilot）+ 128 工具上限</td><td>原生（github/playwright MCP）</td><td>不直接</td><td>function calling + system prompt</td></tr>
+<tr><td>LangChain</td><td>@tool 装饰器 + pydantic args_schema + StructuredTool</td><td>无内置沙箱（运行时负责）</td><td>langchain-mcp-adapters</td><td>litellm/任意</td><td>bind_tools + ToolMessage</td></tr>
+<tr><td>LangGraph</td><td>ToolNode 预置节点 + ToolRuntime 注入 state/context</td><td>无内置沙箱</td><td>MCP adapter</td><td>任意</td><td>ToolNode 并行执行 + ToolMessage</td></tr>
+<tr><td>AutoGPT (Forge)</td><td>AgentComponent + @command + JSON Schema 参数</td><td>Docker 代码执行 + 旧 plugin 已废弃</td><td>平台版支持</td><td>任意</td><td>prompt 解析 + command 协议</td></tr>
+<tr><td>CrewAI</td><td>BaseTool 子类 + @tool 装饰器 + pydantic args_schema</td><td>env_vars + 缓存函数 + 输入验证</td><td>crewai-tools MCP</td><td>litellm</td><td>function calling + structured tool</td></tr>
+<tr><td>Microsoft AutoGen</td><td>FunctionTool 类包装函数 + 类型注解自动 schema</td><td>Docker PythonCodeExecutionTool</td><td>mcp_server_tools</td><td>任意</td><td>FunctionCall + asyncio.gather 并行</td></tr>
+<tr><td>Smolagents</td><td>Tool 基类 + @tool 装饰器 + from_hub/from_mcp/from_langchain</td><td>E2B/Docker/Modal/Blaxel 沙箱（LocalExecutor 非沙箱）</td><td>ToolCollection.from_mcp</td><td>TransformersModel/LiteLLM</td><td><b>CodeAgent（写 Python 代码）</b> 或 JSON tool call</td></tr>
+<tr><td>Pydantic AI</td><td>@agent.tool / @agent.tool_plain + Toolset 抽象 + griffe</td><td>ApprovalRequiredToolset + ModelRetry + per-tool 超时</td><td>MCPToolset</td><td>任意</td><td>function calling + Toolset 链式组合</td></tr>
+<tr><td>LlamaIndex</td><td>FunctionTool.from_defaults() + 自动 schema + Context 注入</td><td>无内置沙箱</td><td>MCP adapter</td><td>任意</td><td>astream_chat_with_tools + scratchpad</td></tr>
+<tr><td>Semantic Kernel</td><td>[KernelFunction] / @kernel_function + 自动 JSON schema</td><td>依赖注入 + Kernel 参数自动注入</td><td>MCP Server plugin</td><td>任意</td><td>auto function calling 6 步循环</td></tr>
+<tr><td>MetaGPT</td><td>Action 基类 + @register_tool + ActionNode 树</td><td>无沙箱（代码执行走 OpenAI schema）</td><td>不直接</td><td>部分中国 LLM</td><td>aask_code + GENERAL_FUNCTION_SCHEMA</td></tr>
+<tr><td>Jan</td><td>MCP Tools Service（8091 端口）+ Response API 编排</td><td>per-tool 用户权限 + depth/timeout 上限</td><td>原生（核心）</td><td>vLLM/llama.cpp</td><td>tools/list + tools/call JSON-RPC</td></tr>
+<tr><td>LM Studio</td><td>OpenAI /v1/chat/completions tools + [TOOL_REQUEST] fallback + MCP integrations</td><td>工具调用确认弹窗 + allowed_tools + 仅信源</td><td>原生（0.3.17+）</td><td>原生（本地）</td><td>function calling + SDK .act()</td></tr>
+<tr><td>Ollama</td><td>Python SDK 自动解析函数签名 + Go template 驱动</td><td>无沙箱（client 自管）</td><td>不直接（client 接）</td><td>原生（本地）</td><td>tool_calls + tool role 消息回喂</td></tr>
+<tr><td>GPT4All</td><td>C++ ChatLLM 内置 tool call parser + Qt 线程</td><td>LocalDocs BM25 RAG + Code Interpreter JS 沙箱</td><td>社区讨论中（倾向 MCP）</td><td>原生（本地）</td><td>OpenAI 兼容 server + LangChain bind_tools</td></tr>
+<tr><td>AnythingLLM</td><td>@modelcontextprotocol/sdk + StdioServerTransport + 39+ 工具双路路由</td><td>最小权限 + tools 数组白名单 + workspace 隔离</td><td>原生（PR #3547）</td><td>任意</td><td>MCP tools/list + tools/call</td></tr>
+<tr><td>OpenWebUI</td><td>Tools/Functions/Pipes/Filters/Actions/Skills + Native Mode</td><td>域名白名单 + user-scoped + WEBUI_SECRET_KEY</td><td>原生（Streamable HTTP）+ mcpo 代理</td><td>任意</td><td>Native Mode（结构化 tool call）+ 系统工具注入</td></tr>
+<tr><td>MCP（协议本身）</td><td>inputSchema JSON Schema 2020-12 + annotations</td><td>用户同意 + annotation 视为不可信 + 输入展示给用户</td><td>——</td><td>——</td><td>JSON-RPC 2.0 + stdio / Streamable HTTP</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="sec2">二、各框架工具层深度分析</h2>
+
+<h3>2.1 一线 AI 编程/Agent 工具</h3>
+
+<div class="framework">
+  <h4>Claude Code</h4>
+  <p>工具通过 <code>buildTool()</code> 工厂构造，每个工具有 <code>inputSchema</code>（Zod，双重用途：生成 JSON Schema 给 API + 运行时 safeParse 校验）、<code>call()</code>、<code>isConcurrencySafe(input)</code>（输入相关并发判定，<code>ls -la</code> 安全 / <code>rm -rf</code> 不安全）、<code>checkPermissions()</code>、<code>validateInput()</code>。</p>
+  <p><b>fail-closed 默认</b>：新工具默认串行、视为写操作、跳过自动安全分类器。14 步执行管线 <code>checkPermissionsAndCallTool()</code>：4 步校验 → 2 步准备 → 3 步权限（PreToolUse 钩子 → 权限裁决 → 拒绝处理）→ 5 步执行（含 PostToolUse 钩子与错误处理）。</p>
+  <p><b>7 级权限模式</b>：default / acceptEdits / plan / dontAsk / bypassPermissions / auto / bubble。</p>
+  <p><b>结果预算化</b>：每个工具声明 <code>maxResultSizeChars</code>，超限落盘到 <code>~/.claude/tool-results/{hash}.txt</code> 并以预览替换，会话级聚合预算防止"千刀万剐"。</p>
+  <p><b>工具延迟加载</b>：<code>shouldDefer: true</code> 仅发送 name + description，需 <code>ToolSearch</code> 调用才加载完整 schema。MCP 工具与内置工具通过 <code>assembleToolPool()</code> 合并，内置优先 + MCP 其后，保持 prompt-cache 断点。40+ 工具分 5 类：File（Read/Edit/Write/NotebookEdit）、Search（Glob/Grep）、Execution（Bash/PowerShell/Monitor）、Web（WebSearch/WebFetch）、Code Intelligence（LSP）。</p>
+</div>
+
+<div class="framework">
+  <h4>OpenAI Codex CLI</h4>
+  <p>Rust 实现，<code>ToolHandler</code> trait 定义 <code>kind()/matches_kind()/is_mutating()/handle()</code>，<code>ShellHandler</code> 处理 Function 与 LocalShell 两种 payload。<code>ToolOrchestrator</code> 协调"审批 → 沙箱 → 执行"三段。<code>ShellRequest</code> 携带 command/cwd/timeout/env/proxy/sandbox 权限/justification。</p>
+  <p><b>沙箱分层</b>：Unix 用 landlock/seccomp，Windows 用 restricted token + 文件系统 ACL carving；<code>SandboxType</code> 由 <code>SandboxManager::transform</code> 根据 fs/network 策略决定。</p>
+  <p><b>审批缓存</b>：<code>ApprovalKey</code> 哈希，同会话内相同命令不再追问。<b>优雅提权</b>：沙箱拒绝时可重试为非沙箱并提示用户。<code>unified_exec.rs</code> 用 PTY 持久 shell 会话，支持 ZshFork 模式。输出 capped 至 <code>EXEC_OUTPUT_MAX_BYTES</code>。</p>
+</div>
+
+<div class="framework">
+  <h4>OpenAI Agents SDK</h4>
+  <p>五类工具：Hosted OpenAI 工具（WebSearch/FileSearch/CodeInterpreter/ImageGen/HostedMCP/ToolSearch）、本地运行时工具（Computer/ApplyPatch/Shell/LocalShell）、Function calling（<code>@function_tool</code>）、Agents as tools（<code>agent.as_tool</code>）、Experimental（codex_tool）。</p>
+  <p><code>@function_tool</code> 装饰器从函数签名 + docstring 通过 griffe + pydantic 自动生成 JSON Schema。关键参数：<code>strict_mode</code>、<code>is_enabled</code>、<code>needs_approval</code>、<code>failure_error_function</code>、<code>timeout/timeout_behavior</code>、<code>defer_loading</code>、<code>tool_input/output_guardrails</code>。<code>RunContextWrapper</code> 作为可选首参注入应用上下文（不发给模型）。可返回 <code>ToolOutputText/Image/FileContent</code> 多模态结构化输出。</p>
+</div>
+
+<div class="framework">
+  <h4>Cursor</h4>
+  <p>内置 12 个工具：Shell、Read、Write、StrReplace、Grep（ripgrep）、Glob、SemanticSearch、Browser、Task（子 agent）、WebSearch、WebFetch、MCP。</p>
+  <p><b>多模型分工</b>：Main Agent LLM + Embedding LLM + Re-ranking LLM + Apply Model（cheap 代码专用，把语义 diff 写成实际文件）+ Summarization LLM。</p>
+  <p><b>沙箱默认</b>：Shell 写权限限 workspace、网络限已知包管理器、部分 syscall 受限；AI 可请求 <code>full_network/all</code> 提权但需用户审批。MCP 配置在 <code>~/.cursor/mcp.json</code>。<b>无状态循环</b>：每次请求都重建上下文，用 prompt caching 缓解成本。</p>
+</div>
+
+<div class="framework">
+  <h4>Aider</h4>
+  <p>无沙箱、无传统 function calling。<code>Coder</code> 工厂按 <code>edit_format</code> 实例化子类（search-replace/diff/whole-file/udiff）。两类文件集：<code>abs_fnames</code>（可编辑）+ <code>abs_read_only_fnames</code>（只读上下文），自动检测文件提及 + glob 展开 + <code>.aiderignore</code>。</p>
+  <p><code>Commands</code> 类实现 slash 命令：<code>/add</code>、<code>/drop</code>、<code>/read-only</code>、<code>/run</code>（<code>!</code> 前缀执行 shell）、<code>/test</code>（非零退出码才入 chat）、<code>/git</code>、<code>/commit</code>。通过 litellm 支持任意 LLM 含本地 Ollama。</p>
+</div>
+
+<div class="framework">
+  <h4>Devin</h4>
+  <p>Brain（无状态云端推理）+ Devbox（Firecracker microVM 执行）双层架构。Devbox 三件套：shell、browser、code editor，Brain 通过递归 agentic loop（Plan-Act-Observe-Correct）驱动。</p>
+  <p><b>Firecracker 硬件级隔离</b>强于 Docker（不共享 host kernel），每个 session 独立 microVM，VM 跨 session 持久。CLI 4 级权限：Normal/Accept Edits/Bypass/Autonomous（配 <code>--sandbox</code>）。网络按域名 allow/deny list 过滤。</p>
+</div>
+
+<div class="framework">
+  <h4>GitHub Copilot Agent Mode</h4>
+  <p>内置工具 <code>read_file/edit_file/run_in_terminal</code> 等 + system prompt 指示 LLM 持续迭代到完成态。custom agent 通过 <code>.agent.md</code> + YAML frontmatter 定义。预置 MCP server：<code>github</code>（只读）+ <code>playwright</code>。VS Code 三类工具：built-in / MCP / extension，3 级审批 Default/Bypass/Autopilot，单请求最多 128 工具。Copilot CLI 内置子 agent：explore/task/general-purpose/code-review/research/rubber-duck。</p>
+</div>
+
+<h3>2.2 通用 Agent 框架</h3>
+
+<div class="framework">
+  <h4>LangChain</h4>
+  <p><code>@tool</code> 装饰器：函数 docstring → description，类型注解 → input schema。<code>@tool("name")</code> 改名，<code>@tool(args_schema=MyBaseModel)</code> 用 pydantic 定义复杂 schema，<code>@tool(return_direct=True)</code> 短路 agent loop。<code>StructuredTool.from_function</code> 程序化创建。<code>InjectedToolArg/InjectedToolCallId</code> 注解隐藏参数，<code>ToolRuntime</code> 直接注入 state/context/store。返回类型：string / dict / multimodal / <code>Command</code>。错误处理：返回错误字符串而非抛异常，<code>handle_tool_error=True</code>。</p>
+</div>
+
+<div class="framework">
+  <h4>LangGraph</h4>
+  <p><code>ToolNode</code> 预置节点处理并行执行 + 错误处理 + 状态注入。<code>ToolRuntime[Context, State]</code> 注入工具访问 state/context/store/stream_writer/config/tool_call_id。普通工具返回 <code>ToolMessage</code>，命令工具返回 <code>Command</code>（更新 state / 触发导航 / 发消息）。三层 context：static runtime context / dynamic state / store（跨会话）。</p>
+</div>
+
+<div class="framework">
+  <h4>AutoGPT (Forge)</h4>
+  <p>组件化架构取代旧 plugin 系统。<code>AgentComponent</code> 基类 + protocol（DirectiveProvider/CommandProvider/MessageProvider/AfterParse/ExecutionFailure/AfterExecute）。命令用 <code>@command</code> 装饰 + JSON Schema 参数。内置 11 个组件：System、UserInteraction、FileManager（local/GCS/S3）、CodeExecutor（Docker）、ActionHistory、GitOperations、ImageGenerator、WebSearch、WebSelenium、Context、Watchdog。<b>Forge 已 legacy</b>，active 开发转向 AutoGPT Platform（可视化 graph builder）。</p>
+</div>
+
+<div class="framework">
+  <h4>CrewAI</h4>
+  <p><code>BaseTool</code> 子类（带状态/校验/env_vars/sync+async）或 <code>@tool("Name")</code> 装饰器（简单工具）。<code>args_schema: Type[BaseModel]</code> 用 pydantic 强校验。<code>_run()</code> 同步 / <code>_arun()</code> 异步。<code>cache_function</code> 自定义缓存。<code>env_vars</code> 声明所需环境变量。</p>
+</div>
+
+<div class="framework">
+  <h4>Microsoft AutoGen</h4>
+  <p><code>FunctionTool</code> 类包装 Python 函数，类型注解 + description 自动生成 JSON schema。<code>ToolUseAgent</code> 持 <code>ChatCompletionClient</code> + Tool 列表，<code>asyncio.gather</code> 并行执行所有 tool calls，结果包成 <code>FunctionExecutionResultMessage</code> 回喂模型反思。<code>ToolAgent</code> 专用执行 agent，抛 <code>ToolNotFoundException/InvalidToolArgumentsException/ToolExecutionException</code>。内置工具：<code>PythonCodeExecutionTool</code>（Docker）、<code>LocalSearchTool/GlobalSearchTool</code>（GraphRAG）、<code>mcp_server_tools</code>、<code>HttpTool</code>、<code>LangChainToolAdapter</code>。</p>
+</div>
+
+<div class="framework">
+  <h4>Smolagents</h4>
+  <p>核心创新：<b>CodeAgent</b>——LLM 写 Python 代码片段调用工具，而非 JSON tool call。支持函数嵌套/循环/条件，benchmark 显示比 JSON 方式少 30% 步骤且性能更高。<code>ToolCallingAgent</code> 是传统 JSON blob 方式。<code>Tool</code> 基类 + <code>@tool</code> 装饰器 + 类属性 <code>name/description/inputs/output_type</code>。工具来源：<code>Tool.from_hub/from_langchain/from_space</code>、<code>ToolCollection.from_mcp</code>（Stdio/Streamable HTTP/SSE）。执行器：LocalPythonExecutor（<b>非沙箱</b>）/ Docker / E2B / Modal / Blaxel。模型无关。</p>
+</div>
+
+<div class="framework">
+  <h4>Pydantic AI</h4>
+  <p>注册方式：<code>@agent.tool</code>（需 <code>RunContext</code>）/ <code>@agent.tool_plain</code>（纯函数）/ <code>tools=[...]</code> / <code>toolsets=[...]</code>。griffe 解析 docstring。<b>Toolset 抽象</b>是核心：<code>AbstractToolset</code> 含 <code>get_tools/call_tool/get_instructions/for_run/for_run_step/__aenter__/__aexit__</code>。13+ 内置 toolset 类型：FunctionToolset/CombinedToolset/FilteredToolset/PrefixedToolset/RenamedToolset/PreparedToolset/ApprovalRequiredToolset/DeferredLoadingToolset/IncludeReturnSchemasToolset/SetMetadataToolset/WrapperToolset/ExternalToolset/MCPToolset，链式方法 <code>.filtered().prefixed().approval_required().defer_loading()</code>。高级：tool search 延迟加载、<code>prepare</code> 动态过滤、<code>ModelRetry</code> 显式重试、并行 tool call（<code>sequential=True</code> 屏障）、per-tool 超时、人在回路审批。</p>
+</div>
+
+<div class="framework">
+  <h4>LlamaIndex</h4>
+  <p><code>FunctionTool</code> 继承 <code>AsyncBaseTool</code>，<code>from_defaults()</code> 自动从函数 + docstring（Sphinx/Google/Javadoc）+ 类型注解生成 <code>fn_schema</code>（pydantic），过滤 <code>Context</code>/<code>self</code> 参数。同步/异步双向自动转换。<code>ToolOutput</code> 含 <code>blocks</code>（ContentBlock 列表：Text/Image/Audio）。<code>FunctionAgent</code> 用 <code>llm.astream_chat_with_tools()</code>，scratchpad 存 workflow Context，支持 <code>return_direct</code> 短路。</p>
+</div>
+
+<div class="framework">
+  <h4>Semantic Kernel</h4>
+  <p><code>@kernel_function</code> 标注函数，SDK 自动扫描生成 <code>KernelParameterMetadata</code> + JSON schema。auto function calling 6 步循环：序列化 → 发模型 → 模型返回 chat 或 function call → 提取 name/params → invoke → 结果回喂 → 重复直到 chat 或 max iterations。支持并行 function call。保留参数名 <code>kernel/service/execution_settings/arguments</code> 自动注入不广告给 LLM。三种 plugin 导入：Native code / OpenAPI spec / MCP Server。建议：≤20 工具（最好 ≤10）、snake_case 命名、最少参数、return type 简单。</p>
+</div>
+
+<div class="framework">
+  <h4>MetaGPT</h4>
+  <p><code>Action</code> 基类 + <code>Role</code> 基类 Observe-Think-Act loop。三种 react_mode：REACT/BY_ORDER/PLAN_AND_ACT。标准 SOP 5 角色 ProductManager → Architect → ProjectManager → Engineer → QaEngineer，对应 Action：WritePRD/WriteDesign/WriteTasks/WriteCode/WriteCodeReview/WriteTest/RunCode/DebugError。<code>ActionNode</code> 树状 prompt schema + 动态 pydantic 模型生成 + fill 策略 + review/revision。Function calling 通过 <code>aask_code</code> + <code>GENERAL_FUNCTION_SCHEMA</code>（execute(language, code)），4 种响应解析回退（标准 tool call → JSON decode err 回退 regex → markdown code block → plain text）。</p>
+</div>
+
+<h3>2.3 桌面/本地 LLM 工具</h3>
+
+<div class="framework">
+  <h4>Jan</h4>
+  <p>桌面端 Tauri（Rust）+ TypeScript，本地 llama.cpp，OpenAI 兼容 server @ 1337。Jan Server（Go）微服务架构：Kong Gateway + LLM API/Response API/MCP Tools(8091)/Memory Tools(8090)/Realtime API。MCP Tools Service 代理 Serper/SearXNG/scraping/file search/SandboxFusion。Response API 迭代 <code>tools/list</code> + <code>tools/call</code>，受 <code>RESPONSE_MAX_TOOL_DEPTH</code> 与 <code>TOOL_EXECUTION_TIMEOUT</code> 约束。</p>
+</div>
+
+<div class="framework">
+  <h4>LM Studio</h4>
+  <p>OpenAI 兼容 <code>/v1/chat/completions</code> tools 数组。原生 tool use（hammer 徽章）：Qwen2.5/Llama-3.1/3.2/Mistral。其他模型走 fallback <code>[TOOL_REQUEST]...[END_TOOL_REQUEST]</code> 自定义 system prompt。MCP 0.3.17+ 引入，0.4.0+ API 支持：ephemeral MCP（per-request）+ pre-configured <code>~/.lmstudio/mcp.json</code>。工具调用确认弹窗 + <code>allowed_tools</code> 限制。Python/TypeScript SDK <code>.act()</code> 自动多轮 tool calling，异常自动回喂 LLM。推荐 Qwen2.5-7B-Instruct。</p>
+</div>
+
+<div class="framework">
+  <h4>Ollama</h4>
+  <p>v0.3.0 引入 tool calling。Go template 驱动：用 <code>text/template</code> 格式化 tool 定义进 prompt，parser 用状态机从流式输出搜模型特定 tag（<code>[TOOL_CALLS]</code> Qwen / 不同格式 DeepSeek/Mistral）。Python SDK 可直接传函数，自动从 docstring + type hints 解析为 schema。流程：messages + tools → 模型返回 <code>tool_calls</code> → client 执行 → 结果作 <code>tool</code> role 消息追加 → 再调模型。支持单 shot / 并行 / 多轮 agent loop / 流式。OpenAI 兼容 + Anthropic 兼容（含 Web Search Loop）。推荐 llama3.1:8b（8/10）/ qwen2.5:14b（9/10）。最佳实践：description < 200 字、6-8 工具上限、<code>tool_choice</code> 强制、<code>max_turns</code> 防失控、try/except 返回结构化错误 JSON。</p>
+</div>
+
+<div class="framework">
+  <h4>GPT4All</h4>
+  <p>C++20 + Qt6/QML + llama.cpp + ggml，GPU via Vulkan/Metal/CUDA。<code>LLModel</code> 抽象基类 + <code>ChatLLM</code>（管理对话状态 + 在独立 Qt 线程解析 tool call）+ <code>LocalDocs</code>（SQLite 嵌入式向量 + BM25 混合搜索，全离线 RAG）+ <code>Server</code>（QHttpServer OpenAI 兼容端点）。原生 C++ Jinja2 兼容 chat template 引擎。Python binding + OpenAI 兼容本地 server（Docker）+ Code Interpreter（设备端 JS 沙箱）。Tool calling 在 ChatLLM 层已有 parser，但 chat UI 全功能 tool 支持仍在社区讨论（#3599），倾向 MCP。</p>
+</div>
+
+<div class="framework">
+  <h4>AnythingLLM</h4>
+  <p><code>@modelcontextprotocol/sdk</code> + <code>StdioServerTransport</code>，三层架构：MCP Protocol Layer → Tool Layer → Client Layer。39+ 工具双路路由：11 core tools（workspace/chat/document/system settings）+ 28 additional tools。<code>CallToolRequestSchema</code> 两阶段：解析 → 校验 → 路由 switch → 执行 → 包装 → 错误处理。错误统一 <code>{content:[{type:'text',text:...}],isError:true}</code>，catch-all 保证 server 不崩。PR #3547（2025-03）为原生 AnythingLLM 带来完整 MCP：默认 mcp_config.json + 动态重载 + Agent Skills 管理 MCP + 内置 agent 框架调用运行中 MCP + npx/uv/uvx Docker 支持。5 个 agent 管理 tool，最小权限（tools 数组白名单）+ 持久 registry + workspace 隔离。</p>
+</div>
+
+<div class="framework">
+  <h4>OpenWebUI</h4>
+  <p>两类扩展层：In-Process Python（Tools/Pipe/Filter/Action/Skills）+ External HTTP（Native MCP HTTP / MCPO 代理 stdio→HTTP / OpenAPI Servers）。Tools 脚本持有 server 端密钥（user 和 model 都读不到）。Native Mode（v0.6.31+，唯一支持模式）用结构化 tool call 不破坏 KV cache，自动注入 30+ 系统工具。MCP 原生仅支持 Streamable HTTP（多租户匹配 / 进程管理 / 并发冲突 / 容器限制 / 安全），stdio 通过 mcpo 桥接（<code>uvx mcpo --port 8000 -- your_mcp_server</code>，自动生成 FastAPI + Swagger）。OAuth 2.1 + PKCE + DCR + 每用户独立认证。9400+ 公开 MCP server（2026-04，YoY 7.8x）。</p>
+</div>
+
+<div class="framework">
+  <h4>MCP（协议本身）</h4>
+  <p>client-host-server 架构 + JSON-RPC 2.0。Host 管多 client 实例 + 安全策略 + 用户授权；Client 1:1 有状态 session 与 Server；Server 暴露 resources/tools/prompts。设计原则：server 极易构建 / 高可组合 / 不能读整个对话或窥其他 server / 通过 capability negotiation 渐进加功能。两层：Data Layer（JSON-RPC lifecycle + tools/resources/prompts + sampling/elicitation/logging）+ Transport Layer（stdio 本地 / Streamable HTTP 远程）。Tool 定义：<code>name</code>(1-128 字符 [A-Za-z0-9_-\.]) / <code>title</code> / <code>description</code> / <code>inputSchema</code>(JSON Schema 2020-12) / <code>outputSchema</code> / <code>annotations</code>。结果：非结构化（<code>content</code> 数组）或结构化（<code>structuredContent</code> 符合 <code>outputSchema</code>）。两类错误：Protocol Error（JSON-RPC error）/ Tool Execution Error（<code>isError:true</code>，LLM 可据以行动）。多轮请求：<code>InputRequiredResult</code> + <code>inputRequests</code> + <code>requestState</code>。</p>
+</div>
+
+<h2 id="sec3">三、模式归纳（跨框架共性）</h2>
+
+<h3>3.1 工具注册：四大主流范式</h3>
+<ol>
+  <li><b>装饰器 + 函数签名协议</b>：LangChain <code>@tool</code>、CrewAI <code>@tool</code>、Smolagents <code>@tool</code>、AutoGen <code>FunctionTool</code>、Pydantic AI <code>@agent.tool</code>、LlamaIndex <code>FunctionTool.from_defaults</code>、Q-agent <code>@tool</code>——签名即协议，inspect.signature + pydantic 自动 schema 是事实标准。</li>
+  <li><b>基类继承 + pydantic args_schema</b>：CrewAI <code>BaseTool</code>、Smolagents <code>Tool</code>、AutoGPT <code>AgentComponent</code>——适合有状态/复杂校验工具。</li>
+  <li><b>工厂函数 + Zod/JSON Schema</b>：Claude Code <code>buildTool()</code>、OpenAI Agents SDK <code>FunctionTool(...)</code> 直构、MCP server <code>inputSchema</code>——schema 即单一真相源。</li>
+  <li><b>方法标注 + 自动发现</b>：Semantic Kernel <code>@kernel_function</code>、MetaGPT <code>@register_tool</code>、AutoGPT <code>@command</code>——SDK 扫描注册。</li>
+</ol>
+<p>跨框架共识：<b>docstring → description + 类型注解 → schema</b> 自动生成是标配；pydantic（Python 生态）或 Zod（TS 生态）是 schema 首选；description 质量 &gt; 命名。</p>
+
+<h3>3.2 安全：四档光谱</h3>
+<ul>
+  <li><b>无沙箱派</b>：Aider、MetaGPT、LangChain/LangGraph、Q-agent（永不沙箱 + 黑名单 + 路径保护）——靠输入校验 + 文件分级 + 用户审批。</li>
+  <li><b>轻约束派</b>：Claude Code（7 级权限 + fail-closed + 钩子）、Cursor（workspace 写限 + 包管理器网络白名单）、LM Studio（确认弹窗 + allowed_tools）。</li>
+  <li><b>OS 沙箱派</b>：OpenAI Codex CLI（landlock/seccomp + Windows restricted token + ACL carving）、Devin（Firecracker microVM）——硬件级/内核级隔离。</li>
+  <li><b>容器沙箱派</b>：AutoGPT CodeExecutor（Docker）、AutoGen <code>PythonCodeExecutionTool</code>（Docker）、Smolagents（E2B/Docker/Modal/Blaxel）——代码执行走容器。</li>
+</ul>
+
+<h3>3.3 工具调用接口：三格式鼎立</h3>
+<ol>
+  <li><b>OpenAI function calling</b>（<code>tools</code> 数组 + <code>tool_calls</code> 响应 + <code>tool</code> role 回喂）：事实标准。</li>
+  <li><b>Anthropic tool_use block</b>：Claude Code、Ollama Anthropic 兼容层。</li>
+  <li><b>Prompt 解析</b>（自定义标记）：LM Studio fallback <code>[TOOL_REQUEST]</code>、OpenWebUI legacy mode（已废弃）、Q-agent dispatcher 解析 <code>```json ... ```</code> 块、MetaGPT markdown code block 回退、Smolagents CodeAgent（写 Python 代码）。</li>
+</ol>
+<p><b>KV cache 友好性</b>是当代分水岭：OpenWebUI 专为此废弃 legacy prompt injection 模式转向 Native Mode。Q-agent dispatcher 的 json block 解析属 prompt 注入路径，需评估 cache 影响。</p>
+
+<h3>3.4 结果回喂：四策略</h3>
+<ul>
+  <li><b>截断阈值</b>：Codex <code>EXEC_OUTPUT_MAX_BYTES</code>、Claude Code <code>maxResultSizeChars</code>、Q-agent ContextManager L1 落盘。</li>
+  <li><b>落盘 + 占位符</b>：Claude Code 落盘 <code>~/.claude/tool-results/{hash}.txt</code> + 预览替换（最精细）。</li>
+  <li><b>会话级预算</b>：Claude Code 聚合 conversation budget 防"千刀万剐"——独有。</li>
+  <li><b>直接回喂</b>：大多数框架无特殊处理。</li>
+</ul>
+
+<h3>3.5 错误处理：三范式</h3>
+<ul>
+  <li><b>结构化错误回喂 LLM</b>：Ollama 最佳实践、MCP <code>isError:true</code>、AutoGen <code>ToolExecutionException</code>——主流。</li>
+  <li><b>重试机制</b>：Pydantic AI <code>ModelRetry</code> + per-tool retry limit、AutoGen 反思循环、Smolagents self-heal。</li>
+  <li><b>PermissionError 单独处理</b>：Claude Code/Codex/Devin——权限错误需区别于普通执行错误。</li>
+</ul>
+
+<h3>3.6 持久化 / 并发 / MCP / 本地 LLM</h3>
+<ul>
+  <li><b>sqlite</b>：Q-agent / GPT4All LocalDocs / OpenWebUI</li>
+  <li><b>asyncio.gather 并行</b>：AutoGen / Pydantic AI / OpenAI Agents SDK / LangGraph ToolNode</li>
+  <li><b>QThread</b>：Q-agent ChatWorker / GPT4All ChatLLM</li>
+  <li><b>MCP 原生首等公民</b>：Claude Code / Cursor / Codex / OpenAI Agents SDK / LM Studio / Jan / OpenWebUI / AnythingLLM / VS Code Copilot</li>
+  <li><b>MCP Adapter 挂载</b>：LangChain / LangGraph / LlamaIndex / Smolagents / Pydantic AI / Semantic Kernel / AutoGen / CrewAI</li>
+  <li><b>本地 LLM 原生</b>：Ollama / LM Studio / GPT4All / Jan / OpenWebUI</li>
+  <li><b>本地 tool calling 双轨制</b>：原生 function calling（Qwen2.5/Llama 3.1/Mistral）+ prompt 解析 fallback——标配</li>
+</ul>
+
+<h2 id="sec4">四、对 Q-agent 的启示</h2>
+
+<h3>4.1 Q-agent 当前设计定位</h3>
+<ul>
+  <li><code>@tool(name, desc)</code> 装饰器 + 函数签名协议 + <code>inspect.signature</code> 注册校验——<span class="tag ok">优势</span>完全契合主流装饰器 + 签名协议范式</li>
+  <li>safety 黑名单 + 路径保护（G:\agent 禁区）+ 永不沙箱——<span class="tag ok">优势</span>属"无沙箱派"，与 Aider/MetaGPT/LangChain 同阵营</li>
+  <li>dispatcher 从 LLM 输出解析 <code>```json ... ```</code> 块——<span class="tag warn">风险</span>属 prompt 解析路径，对支持原生 tool calling 的本地模型是退步</li>
+  <li>ContextManager 4 级压缩 + L1 工具结果落盘——<span class="tag ok">优势</span>比多数框架精细，接近 Claude Code</li>
+  <li>sqlite3 持久化——<span class="tag ok">优势</span>比 LangChain/AutoGen 默认不入库更扎实</li>
+</ul>
+
+<h3>4.2 v0.0.19 工具层实化可借鉴的设计点</h3>
+<ol>
+  <li><b>Ollama 原生 tool calling 双轨制</b>（最高优先级）：原生 <code>tool_calls</code> 路径（KV cache 友好）+ prompt 解析 fallback</li>
+  <li><b>结构化错误回喂</b>：PermissionError / 执行错误 / 超时 三类分别返回结构化 JSON 让 LLM 区分行动</li>
+  <li><b>工具结果预算 + 落盘</b>：会话级聚合预算防"千刀剐"</li>
+  <li><b>并发安全标识</b>：<code>@tool</code> 装饰器可选参数</li>
+  <li><b>保留 call_id 关联</b>：tool_result 回喂时 id 关联正确</li>
+  <li><b>危险命令黑名单 + 路径保护已到位</b>：补 PermissionError 回喂格式即可</li>
+</ol>
+
+<h2 id="sec5">五、工具功能清单（已纳入 / 已放弃 / 理由）</h2>
+
+<h3>5.1 已纳入 v0.0.19 的工具</h3>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>优先级</th><th>工具类</th><th>具体工具</th><th>纳入理由</th></tr>
+</thead>
+<tbody>
+<tr><td class="prio-p0">P0</td><td>文件操作</td><td>read_file / write_file / list_dir / move / search</td><td>最高频，Aider/Claude Code/Cursor 都以文件为核，无网络依赖，安全风险最低（路径保护已就位），search 可复用 ripgrep 思路</td></tr>
+<tr><td class="prio-p1">P1</td><td>shell</td><td>execute_shell + safety</td><td>Claude Code Bash / Codex Shell / Cursor Shell 都列为骨干，safety 黑名单已有基础，需补超时 + 输出截断 + PermissionError 回喂</td></tr>
+<tr><td class="prio-p2">P2</td><td>网络（增量）</td><td>http_get / web_fetch</td><td>价值高但本地 LLM 场景需谨慎（用户可能离线），实现简单（标准库 urllib），安全风险中等（无沙箱需 URL 白名单或仅 HTTPS）</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>5.2 已放弃/暂缓的工具 + 理由</h3>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>放弃项</th><th>类别</th><th>放弃理由</th><th>未来重启条件</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td><b>P3 代码执行</b><br>python_eval 子进程</td>
+  <td class="prio-p3">高风险工具</td>
+  <td><b>永不沙箱约束冲突</b>：Devin/AutoGPT/AutoGen/Smolagents 都强制 Docker/E2B 沙箱执行任意代码；Q-agent 永不沙箱原则下，无沙箱执行任意 Python = 用户机器直接被 LLM 控制，风险无法接受</td>
+  <td>① 用户明确要求并签署"风险知情同意"；② 限定为"只读 eval"子集（不能调 os/subprocess/open(w) 等）；③ 或未来引入轻量沙箱（如 RestrictedPython）打破"永不沙箱"约束</td>
+</tr>
+<tr>
+  <td><b>MCP 适配</b></td>
+  <td>外部工具协议</td>
+  <td>v0.0.19 焦点是验证内置工具全链路（dispatcher + ContextManager + sqlite），MCP 协议复杂（多租户/认证），桌面单用户场景 stdio 优先即可，先不进 v0.0.19</td>
+  <td>v0.0.21+ 中期适配，先做 MCP client 端（host 模式），stdio transport 优先，Streamable HTTP 暂缓</td>
+</tr>
+<tr>
+  <td><b>工具延迟加载</b></td>
+  <td>调度优化</td>
+  <td>工具数超 10 个时才是刚需，Q-agent 4 类候选（约 10 个工具）暂不急需</td>
+  <td>v0.0.21+ 工具数增长到 15+ 时引入，参考 Claude Code <code>shouldDefer</code></td>
+</tr>
+<tr>
+  <td><b>并发安全判定 + 审批缓存</b></td>
+  <td>调度优化</td>
+  <td>Claude Code <code>isConcurrencySafe(input)</code> + Codex 审批缓存属中高端配置，Q-agent v0.0.19 串行执行已足够</td>
+  <td>v0.0.22+ 当多工具并行执行需求出现时引入</td>
+</tr>
+<tr>
+  <td><b>PreToolUse / PostToolUse 钩子</b></td>
+  <td>扩展机制</td>
+  <td>Claude Code 14 步管线中的钩子机制，Q-agent 当前规模不需要</td>
+  <td>v0.0.23+ 当用户需要"自定义工具前置/后置处理"时引入</td>
+</tr>
+<tr>
+  <td><b>多模态工具输出</b></td>
+  <td>输出类型</td>
+  <td>OpenAI Agents SDK 支持 ToolOutputText/Image/FileContent，Q-agent 当前 LLM 仅文本</td>
+  <td>v0.0.25+ 当引入多模态本地 LLM（如 LLaVA）时再考虑</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="sec6">六、用户应该提但没提的问题（决策清单）</h2>
+
+<div class="callout danger">
+  <div class="callout-title">⚠ 这些问题 v0.0.19 落地前必须决策</div>
+  <p>调研报告里没有覆盖、但工具层实化前必须回答的问题。每个问题的决策都会影响代码结构、UI 行为或安全边界。</p>
+</div>
+
+<h3>6.1 工具命名与描述规范</h3>
+<ol class="question-list">
+  <li><b>工具命名规范</b>：snake_case / camelCase / 中文命令名？跨框架主流是 snake_case（Semantic Kernel 建议），但中文命令名对本地 LLM 友好度更高？</li>
+  <li><b>工具描述质量标准</b>：Ollama 最佳实践是 description &lt; 200 字、6-8 工具上限——Q-agent 是否照搬？描述要不要包含"何时用 / 何时不用 / 参数约束 / 返回格式"四要素？</li>
+  <li><b>工具描述语言</b>：中文描述 vs 英文描述？本地 LLM（Qwen 中文优化）对中文描述理解更好，但 MCP 国际化场景英文更通用</li>
+  <li><b>工具分类前缀</b>：是否参考 Claude Code 5 类前缀（file_ / search_ / exec_ / web_ / code_）？还是平铺命名？</li>
+</ol>
+
+<h3>6.2 调用超时与执行控制</h3>
+<ol class="question-list">
+  <li><b>工具调用超时策略</b>：shell 长命令（如 build、apt install）超时多少秒？是否允许用户配置？默认 30s / 60s / 120s？</li>
+  <li><b>工具调用深度上限</b>：防 doom loop——单 turn 最多调几次工具？Jan 用 <code>RESPONSE_MAX_TOOL_DEPTH</code>，Ollama 用 <code>max_turns</code>，Q-agent 编排层已有 doom_loop 检测，阈值定多少？</li>
+  <li><b>工具失败的 LLM 自愈重试上限</b>：失败几次后放弃？Pydantic AI per-tool retry limit——Q-agent 定几次？</li>
+  <li><b>工具执行并发 vs 串行</b>：Q-agent 当前 dispatcher 顺序执行，v0.0.19 是否引入并行？参考 AutoGen <code>asyncio.gather</code> / Pydantic AI <code>sequential=True</code> 屏障</li>
+</ol>
+
+<h3>6.3 结果治理与持久化</h3>
+<ol class="question-list">
+  <li><b>工具结果落盘位置</b>：<code>~/.q-agent/tool-results/</code> 还是项目目录内？跨会话是否保留？清理策略（7 天 / 30 天 / 手动）？</li>
+  <li><b>工具结果会话级预算</b>：Claude Code 用聚合 conversation budget 防"千刀剐"，Q-agent 单工具截断 + 总预算双重控制——总预算定多少 token？</li>
+  <li><b>工具调用日志持久化粒度</b>：完整 input/output 都记？还是只记元数据（tool_name + 谗传时间 + 成功/失败）？记入 sqlite 还是 jsonl？</li>
+  <li><b>工具调用历史是否可回放</b>：用户重启后能不能看到上次的工具调用记录？</li>
+</ol>
+
+<h3>6.4 用户审批与权限分级</h3>
+<ol class="question-list">
+  <li><b>用户审批机制</b>：是否引入"危险工具调用前弹窗确认"（参考 Cursor/LM Studio/Pydantic AI ApprovalRequiredToolset）？还是全部自动执行？</li>
+  <li><b>工具权限分级</b>：read_only / write / destructive 三级？哪级需要用户确认？write_file 算 write 级，move 算 destructive 级？</li>
+  <li><b>审批缓存</b>：同会话内相同命令不再追问（参考 Codex <code>ApprovalKey</code> 哈希）？还是每次都问？</li>
+  <li><b>永不沙箱边界确认</b>：用户是否需要明确签署"永不沙箱风险知情同意书"才能用 shell/python_eval？</li>
+</ol>
+
+<h3>6.5 UI 反馈与可观测性</h3>
+<ol class="question-list">
+  <li><b>工具调用的 UI 反馈</b>：用户在 chat 气泡里能不能看到工具调用过程（Claude Code 风格折叠展开）？还是只看最终结果？</li>
+  <li><b>工具调用实时状态</b>：执行中（旋转图标）/ 成功（绿勾）/ 失败（红叉）/ 取消（灰圈）四种状态如何展示？</li>
+  <li><b>工具调用输入输出展示</b>：完整展示？截断展示？点击展开？落盘后展示"结果已落盘到 xxx，预览：..."？</li>
+  <li><b>工具调用气泡的颜色 / 图标</b>：是否参考 Claude Code 的工具气泡样式（灰底 + 工具图标 + 折叠）？</li>
+</ol>
+
+<h3>6.6 撤销与安全</h3>
+<ol class="question-list">
+  <li><b>撤销机制</b>：用户能否撤销 write_file / move 等不可逆工具的执行结果？是否走 git 兜底（Aider 模式）？</li>
+  <li><b>私有数据保护</b>：防止 LLM 通过工具泄露敏感数据（如把 .env 内容写入公共文件）——是否引入"敏感文件读取拦截"扩展 safety？</li>
+  <li><b>工具调用的审计日志</b>：合规需求？记不记完整 input/output 用于事后追查？是否涉及用户隐私？</li>
+  <li><b>网络工具的 URL 白名单</b>：http_get/web_fetch 是否限 HTTPS？是否需要域名白名单（参考 Devin）？</li>
+</ol>
+
+<h3>6.7 架构与扩展</h3>
+<ol class="question-list">
+  <li><b>工具描述如何注入 system prompt</b>：每轮全量注入 vs 按需加载？token 预算怎么控？</li>
+  <li><b>工具版本管理</b>：工具升级后，旧会话回放兼容性？是否需要工具 schema 版本号？</li>
+  <li><b>工具调用的事务性</b>：多个工具调用原子性？比如"read A + write B + move C"中途失败如何回滚？</li>
+  <li><b>工具注册器的外部 tool 源接口</b>：v0.0.19 的 <code>@tool</code> 注册器是否预留"可注入外部 tool 源"接口（为 v0.0.21+ MCP 适配铺路）？</li>
+</ol>
+
+<h3>6.8 调研方法本身</h3>
+<ol class="question-list">
+  <li><b>单 agent 报告是否够用</b>：当前报告是单 agent 一次产出，是否要派多 agent 并行交叉审查提高可信度？</li>
+  <li><b>是否需要源码级复核</b>：单 agent 只查了官方文档 + GitHub README，没读源码细节，关键设计点（如 dispatcher 解析逻辑）是否要派 agent 读源码验证？</li>
+  <li><b>调研结论的时效性</b>：AI 框架迭代快（如 MCP 协议 2025-06-18 → 2025-11-25 已两次更新），本次报告时效性多久？半年后是否需要重做？</li>
+</ol>
+
+<div class="callout ok">
+  <div class="callout-title">提示</div>
+  <p>以上 32 个问题按"必须 v0.0.19 决策" vs "v0.0.20+ 再决策"分组——6.1/6.2/6.4/6.5 必须先定，6.3/6.6/6.7 可在 v0.0.19 实现中迭代，6.8 是调研方法论问题可随时重做。</p>
+</div>
+
+<h2 id="sec7">七、引用来源</h2>
+
+<div class="refs">
+  <h4>Claude Code</h4>
+  <ul>
+    <li><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works">How tool use works — Claude Platform Docs</a></li>
+    <li><a href="https://code.claude.com/docs/en/how-claude-code-works">How Claude Code works — Claude Code Docs</a></li>
+    <li><a href="https://code.claude.com/docs/en/tools-reference">Tools reference — Claude Code Docs</a></li>
+    <li><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling">Programmatic tool calling — Claude API Docs</a></li>
+    <li><a href="https://claude-code-from-source.com/ch06-tools/">Ch 6. Tools — Claude Code from Source</a></li>
+  </ul>
+
+  <h4>OpenAI Codex CLI</h4>
+  <ul>
+    <li><a href="https://github.com/openai/codex/blob/eaf81d3f/codex-rs/core/src/tools/handlers/shell.rs">codex-rs/core/src/tools/handlers/shell.rs</a></li>
+    <li><a href="https://github.com/openai/codex/blob/53b50197/codex-rs/core/src/tools/runtimes/shell.rs">codex-rs/core/src/tools/runtimes/shell.rs</a></li>
+    <li><a href="https://github.com/openai/codex/blob/53b50197/codex-rs/core/src/exec.rs">codex-rs/core/src/exec.rs</a></li>
+    <li><a href="https://github.com/openai/codex/blob/53b50197/codex-rs/core/src/tools/runtimes/unified_exec.rs">codex-rs/core/src/tools/runtimes/unified_exec.rs</a></li>
+  </ul>
+
+  <h4>OpenAI Agents SDK</h4>
+  <ul>
+    <li><a href="https://github.com/openai/openai-agents-python/blob/main/docs/tools.md">Tools documentation</a></li>
+    <li><a href="https://openai.github.io/openai-agents-python/ref/tool/">Tools API reference</a></li>
+    <li><a href="https://developers.openai.com/api/docs/guides/agents/define-agents">Agent definitions guide</a></li>
+    <li><a href="https://developers.openai.com/api/docs/guides/agents">Agents SDK overview</a></li>
+  </ul>
+
+  <h4>Cursor</h4>
+  <ul>
+    <li><a href="https://cursor.com/learn/tool-calling">Tool Calling | Cursor Learn</a></li>
+    <li><a href="https://blog.sshh.io/p/how-cursor-ai-ide-works">How Cursor (AI IDE) Works — Shrivu Shankar</a></li>
+    <li><a href="https://howworks.ai/blog/how-cursor-actually-works">How Cursor Actually Works | HowWorks</a></li>
+    <li><a href="https://markaicode.com/architecture/cursor-agent-architecture/">Cursor Agent Architecture | Markaicode</a></li>
+  </ul>
+
+  <h4>Aider</h4>
+  <ul>
+    <li><a href="https://deepwiki.com/Aider-AI/aider/2-core-architecture">Core Architecture | DeepWiki</a></li>
+    <li><a href="https://deepwiki.com/Aider-AI/aider/2.3-commands-and-user-interactions">Commands and User Interactions | DeepWiki</a></li>
+    <li><a href="https://deepwiki.com/Aider-AI/aider/4.2-file-management-and-tracking">File Management and Tracking | DeepWiki</a></li>
+    <li><a href="https://github.com/paul-gauthier/aider/blob/main/aider/website/docs/usage/commands.md">In-chat Commands (GitHub)</a></li>
+  </ul>
+
+  <h4>Devin</h4>
+  <ul>
+    <li><a href="https://cognition.ai/blog/introducing-devin">Introducing Devin | Cognition</a></li>
+    <li><a href="https://www.mmntm.net/articles/devin-deep-dive">Devin: The Autonomous Engineer | mmntm</a></li>
+    <li><a href="https://cognitionai.mintlify.app/cli/reference/permissions">Devin CLI Permissions</a></li>
+    <li><a href="https://docs.devin.ai/enterprise/deployment/overview">Enterprise Deployment — Devin Docs</a></li>
+  </ul>
+
+  <h4>GitHub Copilot Agent Mode</h4>
+  <ul>
+    <li><a href="https://github.blog/ai-and-ml/github-copilot/agent-mode-101-all-about-github-copilots-powerful-mode/">Agent mode 101 - GitHub Blog</a></li>
+    <li><a href="https://github.com/github/docs/blob/main/content/copilot/reference/custom-agents-configuration.md">Custom agents configuration - GitHub Docs</a></li>
+    <li><a href="https://github.com/microsoft/vscode-docs/blob/main/docs/copilot/agents/agent-tools.md">Use tools with agents - VS Code Docs</a></li>
+    <li><a href="https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-custom-agents">About custom agents - GitHub Docs</a></li>
+  </ul>
+
+  <h4>LangChain</h4>
+  <ul>
+    <li><a href="https://docs.langchain.com/oss/python/langchain/tools">Tools — LangChain Docs</a></li>
+    <li><a href="https://github.com/langchain-ai/langchain/blob/8b21400627672754a56350e552d39b23f77206a3/libs/core/langchain_core/tools/base.py">langchain_core/tools/base.py</a></li>
+    <li><a href="https://github.com/langchain-ai/langchain/blob/6f7c8f54454ae45b07ca274cbfbb0afb8cef9041/libs/core/langchain_core/tools/structured.py">langchain_core/tools/structured.py</a></li>
+  </ul>
+
+  <h4>LangGraph</h4>
+  <ul>
+    <li><a href="https://reference.langchain.com/python/langgraph.prebuilt.tool_node/ToolNode">ToolNode | LangGraph Reference</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/langgraph/workflows-agents">Workflows and agents — LangChain Docs</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/concepts/context">Context overview — LangChain Docs</a></li>
+    <li><a href="https://reference.langchain.com/python/langgraph/runtime/Runtime">Runtime | LangGraph Reference</a></li>
+  </ul>
+
+  <h4>AutoGPT</h4>
+  <ul>
+    <li><a href="https://github.com/Significant-Gravitas/AutoGPT/blob/master/docs/content/forge/components/built-in-components.md">Built-in Components — GitHub</a></li>
+    <li><a href="https://github.com/Significant-Gravitas/AutoGPT/blob/master/docs/content/forge/components/creating-components.md">Creating Components — GitHub</a></li>
+    <li><a href="https://github.com/Significant-Gravitas/AutoGPT/blob/master/docs/content/forge/components/protocols.md">Protocols — GitHub</a></li>
+    <li><a href="https://deepwiki.com/Significant-Gravitas/AutoGPT/4.1-forge">Forge — DeepWiki</a></li>
+  </ul>
+
+  <h4>CrewAI</h4>
+  <ul>
+    <li><a href="https://docs.crewai.com/en/learn/create-custom-tools">Create Custom Tools — CrewAI</a></li>
+    <li><a href="https://docs.crewai.com/en/concepts/tools">Tools — CrewAI</a></li>
+    <li><a href="https://deepwiki.com/crewAIInc/crewAI-tools/1.2-architecture-and-design">Architecture and Design | DeepWiki</a></li>
+  </ul>
+
+  <h4>Microsoft AutoGen</h4>
+  <ul>
+    <li><a href="https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/components/tools.html">Tools — AutoGen Core API</a></li>
+    <li><a href="https://microsoft.github.io/autogen/stable/reference/python/autogen_core.tools.html">autogen_core.tools Reference</a></li>
+    <li><a href="https://microsoft.github.io/autogen/stable/reference/python/autogen_core.tool_agent.html">autogen_core.tool_agent Reference</a></li>
+    <li><a href="https://github.com/microsoft/autogen/blob/main/python/packages/autogen-core/src/autogen_core/tools/_function_tool.py">FunctionTool source — GitHub</a></li>
+  </ul>
+
+  <h4>Smolagents</h4>
+  <ul>
+    <li><a href="https://huggingface.co/docs/smolagents/reference/agents">Agents — Hugging Face</a></li>
+    <li><a href="https://huggingface.co/docs/smolagents/en/reference/tools">Tools — Hugging Face</a></li>
+    <li><a href="https://huggingface.co/docs/smolagents/v1.26.0/conceptual_guides/react">How do multi-step agents work?</a></li>
+    <li><a href="https://github.com/huggingface/smolagents">huggingface/smolagents — GitHub</a></li>
+  </ul>
+
+  <h4>Pydantic AI</h4>
+  <ul>
+    <li><a href="https://pydantic.dev/docs/ai/tools-toolsets/tools/">Function Tools | Pydantic Docs</a></li>
+    <li><a href="https://pydantic.dev/docs/ai/tools-toolsets/toolsets/">Toolsets | Pydantic Docs</a></li>
+    <li><a href="https://pydantic.dev/docs/ai/tools-toolsets/tools-advanced/">Advanced Tool Features | Pydantic Docs</a></li>
+    <li><a href="https://github.com/pydantic/pydantic-ai/blob/main/pydantic_ai_slim/pydantic_ai/.agents/skills/building-pydantic-ai-agents/references/ARCHITECTURE.md">Architecture Guide — GitHub</a></li>
+  </ul>
+
+  <h4>LlamaIndex</h4>
+  <ul>
+    <li><a href="https://developers.llamaindex.ai/python/framework-api-reference/tools/function/">FunctionTool API reference</a></li>
+    <li><a href="https://docs.llamaindex.io/en/v0.10.22/module_guides/deploying/agents/tools/">Tools — LlamaIndex Docs</a></li>
+    <li><a href="https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/tools/function_tool.py">function_tool.py — GitHub</a></li>
+    <li><a href="https://github.com/run-llama/llama_index/blob/ea1f987bb880519bb7c212b33d8615ae4b8fdbf8/llama-index-core/llama_index/core/agent/workflow/function_agent.py">FunctionAgent source — GitHub</a></li>
+  </ul>
+
+  <h4>Semantic Kernel</h4>
+  <ul>
+    <li><a href="https://learn.microsoft.com/en-us/semantic-kernel/concepts/ai-services/chat-completion/function-calling/">Function calling with chat completion — Microsoft Learn</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/semantic-kernel/concepts/plugins/">Plugins in Semantic Kernel — Microsoft Learn</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-functions">Configuring Agents with Plugins — Microsoft Learn</a></li>
+    <li><a href="https://devblogs.microsoft.com/semantic-kernel/diving-into-function-calling-and-its-json-schema-in-semantic-kernel-net/">Diving into Function Calling and JSON Schema — Microsoft Agent Framework Blog</a></li>
+  </ul>
+
+  <h4>MetaGPT</h4>
+  <ul>
+    <li><a href="https://deepwiki.com/FoundationAgents/MetaGPT/10.3-function-calling-and-code-generation">Function Calling and Code Generation — DeepWiki</a></li>
+    <li><a href="https://deepwiki.com/FoundationAgents/MetaGPT/2-core-multi-agent-framework">Core Multi-Agent Framework — DeepWiki</a></li>
+    <li><a href="https://deepwiki.com/FoundationAgents/MetaGPT/2.2-action-system">Action System — DeepWiki</a></li>
+    <li><a href="https://deepwiki.com/FoundationAgents/MetaGPT/7-actionnode-and-structured-output">ActionNode and Structured Output — DeepWiki</a></li>
+  </ul>
+
+  <h4>Jan</h4>
+  <ul>
+    <li><a href="https://github.com/janhq/server/blob/main/docs/architecture/system-design.md">Jan Server System Design — GitHub</a></li>
+    <li><a href="https://github.com/janhq/jan/blob/dev/docs/src/pages/docs/desktop/mcp.mdx">Jan MCP Docs</a></li>
+    <li><a href="https://github.com/janhq/server/blob/main/docs/api/llm-api/README.md">Jan Server LLM API — GitHub</a></li>
+    <li><a href="https://github.com/janhq/jan/pull/7800">PR #7800 — /v1/orchestrations</a></li>
+  </ul>
+
+  <h4>LM Studio</h4>
+  <ul>
+    <li><a href="https://lmstudio.ai/docs/developer/core/mcp">Using MCP via API | LM Studio</a></li>
+    <li><a href="https://lmstudio.ai/docs/developer/openai-compat/tools">Tool Use | LM Studio</a></li>
+    <li><a href="https://lmstudio.ai/blog/lmstudio-v0.3.17">MCP in LM Studio Blog</a></li>
+    <li><a href="https://github.com/lmstudio-ai/docs/blob/main/1_python/2_agent/tools.md">Python SDK Tool Definition — GitHub</a></li>
+  </ul>
+
+  <h4>Ollama</h4>
+  <ul>
+    <li><a href="https://github.com/ollama/ollama/blob/main/docs/capabilities/tool-calling.mdx">Ollama Tool Calling Docs — GitHub</a></li>
+    <li><a href="https://deepwiki.com/ollama/ollama/7.2-tool-calling-and-function-execution">Tool Calling and Function Execution — DeepWiki</a></li>
+    <li><a href="https://dev.to/pavelespitia/function-calling-with-ollama-make-your-local-llm-run-real-tools-bep">Function Calling with Ollama — DEV Community</a></li>
+    <li><a href="https://localaimaster.com/blog/ollama-function-calling-tools">Ollama Function Calling Practical Guide — Local AI Master</a></li>
+  </ul>
+
+  <h4>GPT4All</h4>
+  <ul>
+    <li><a href="https://github.com/nomic-ai/gpt4all/discussions/3599">TOOL support Discussion #3599 — GitHub</a></li>
+    <li><a href="https://github.com/nomic-ai/gpt4all/tree/main/gpt4all-backend">gpt4all-backend — GitHub</a></li>
+    <li><a href="https://github.com/nomic-ai/gpt4all/">nomic-ai/gpt4all — GitHub</a></li>
+  </ul>
+
+  <h4>AnythingLLM</h4>
+  <ul>
+    <li><a href="https://deepwiki.com/raqueljezweb/anythingllm-mcp-server/3.4-tool-system">Tool System — DeepWiki</a></li>
+    <li><a href="https://deepwiki.com/raqueljezweb/anythingllm-mcp-server/3.1-system-overview">System Overview — DeepWiki</a></li>
+    <li><a href="https://github.com/Mintplex-Labs/anything-llm/pull/3547">MCP Full Compatibility PR #3547 — GitHub</a></li>
+    <li><a href="https://deepwiki.com/raqueljezweb/anythingllm-mcp-server/3.2-mcp-server-layer">MCP Server Layer — DeepWiki</a></li>
+  </ul>
+
+  <h4>OpenWebUI</h4>
+  <ul>
+    <li><a href="https://github.com/open-webui/docs/blob/main/docs/features/extensibility/plugin/tools/openapi-servers/mcp.mdx">OpenWebUI MCP Docs — GitHub</a></li>
+    <li><a href="https://github.com/open-webui/docs/blob/main/docs/features/extensibility/plugin/tools/index.mdx">OpenWebUI Tools Docs — GitHub</a></li>
+    <li><a href="https://github.com/open-webui/docs/blob/main/docs/features/extensibility/index.md">OpenWebUI Extensibility Docs — GitHub</a></li>
+    <li><a href="https://github.com/open-webui/open-webui/discussions/16238">Native MCP Discussion #16238 — GitHub</a></li>
+  </ul>
+
+  <h4>MCP（协议本身）</h4>
+  <ul>
+    <li><a href="https://modelcontextprotocol.io/specification/2025-11-25/architecture/index">Architecture — MCP Specification 2025-11-25</a></li>
+    <li><a href="https://modelcontextprotocol.io/docs/learn/architecture">Architecture overview — MCP Learn</a></li>
+    <li><a href="https://modelcontextprotocol.io/specification/2025-06-18">Specification 2025-06-18</a></li>
+    <li><a href="https://modelcontextprotocol.io/specification/draft/server/tools">Tools Specification (Draft)</a></li>
+    <li><a href="https://modelcontextprotocol.io/docs/learn/server-concepts">Understanding MCP Servers</a></li>
+  </ul>
+</div>
+
+<div class="conclusion">
+  <h3>调研总结</h3>
+  <p><b>调研方式</b>：单 agent 一次性产出（非多 agent 协作），覆盖 24 个框架 + 80+ 条权威源。</p>
+  <p><b>纳入 v0.0.19 的工具</b>：P0 文件操作（read_file/write_file/list_dir/move/search）+ P1 shell（execute_shell+safety）+ P2 网络（http_get/web_fetch，增量）。</p>
+  <p><b>放弃/暂缓的工具</b>：P3 代码执行（永不沙箱冲突，最高风险）+ MCP 适配（v0.0.21+ 中期）+ 工具延迟加载（暂不急需）+ 并发判定/审批缓存（中高端配置）+ PreToolUse/PostToolUse 钩子 + 多模态工具输出。</p>
+  <p><b>关键未决问题</b>：32 个问题分 8 大类（命名/超时/结果治理/审批/UI/撤销/架构/调研方法），其中 6.1/6.2/6.4/6.5 必须在 v0.0.19 落地前决策。</p>
+  <p><b>核心建议</b>：v0.0.19 实化的最关键动作是补 Ollama 原生 tool calling 双轨制 + 结构化错误回喂 LLM + 工具结果预算，P0 文件 + P1 shell 优先落地，P3 代码执行因永不沙箱约束建议暂缓，MCP 留作 v0.0.21+ 中期适配。</p>
+</div>
+
+</div>
+</body>
+</html>

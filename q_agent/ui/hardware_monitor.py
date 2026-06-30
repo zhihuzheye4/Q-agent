@@ -1,6 +1,6 @@
 """硬件监控：后台采集 6 指标 + 1s 采样（v0.0.15 重构）。
 
-v0.0.15 改造（贴纸式）：
+v0.0.15 改造（模块化）：
 - 删除 v0.0.12 旧 HardwareMonitor widget（sidebar 底部常驻折线，已被 left panel 移除挂载）
 - HardwareMonitorWorker 扩展采集温度：CPU 温度（Windows psutil 不支持，永远 None）
   + GPU 温度（pynvml NVML_TEMPERATURE_GPU）

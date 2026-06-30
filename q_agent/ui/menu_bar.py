@@ -5,7 +5,7 @@
     - 监控菜单（v0.0.15 新增）：打开监控 + 关闭监控（triggered → callback）
     - 帮助菜单：关于（QMessageBox 弹窗）
 
-v0.0.15 贴纸式扩展（CLAUDE.md 第二十一节）：
+v0.0.15 模块化扩展（CLAUDE.md 第二十一节）：
     - monitor_callback / close_callback 作为构造参数注入，菜单只负责触发回调
     - 不侵入既有 _build_file_menu / _build_help_menu，新增 _build_monitor_menu 独立方法
 
@@ -87,9 +87,10 @@ class MenuBar:
         QMessageBox.information(
             self.window,
             "关于 Q-agent",
-            "Q-agent v0.0.16\n\n"
+            "Q-agent v0.0.19\n\n"
             "类似 Claude Code 的桌面端 AI 工具\n"
             "对接本地 LLM\n\n"
-            "当前：活 UI 空壳 + 硬件监控独立窗口 + 新建/清空按钮接通\n"
+            "当前：活 UI + 硬件监控独立窗口 + 编排层骨架 + 工具层 10 工具实化\n"
+            "审批/UI 反馈/持久化/撤销栈支撑线就绪，v0.0.20 接通编排层。\n"
             "界面可跳转、按钮可按，核心功能逐步填充中。",
         )
