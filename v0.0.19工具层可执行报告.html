@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>v0.0.19 工具层实化可执行报告 — Q-agent</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --surface: #1a2028;
+    --surface-2: #232b36;
+    --border: #2d3744;
+    --text: #e4e7eb;
+    --text-dim: #9aa5b1;
+    --accent: #4fd1c5;
+    --accent-2: #f687b3;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --ok: #34d399;
+    --code-bg: #161b22;
+    --code-text: #c9d1d9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+  }
+  .container { max-width: 1280px; margin: 0 auto; padding: 40px 32px 80px; }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 28px;
+    margin-bottom: 32px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .meta { color: var(--text-dim); font-size: 13px; }
+  .meta span { margin-right: 18px; }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+  }
+  .toc h3 { margin: 0 0 12px 0; font-size: 15px; color: var(--accent); }
+  .toc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 18px; }
+  .toc ul { margin: 0; padding-left: 18px; list-style: decimal; }
+  .toc li { margin: 3px 0; font-size: 13px; }
+  .toc a { color: var(--text-dim); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  h2 {
+    font-size: 22px;
+    margin: 48px 0 18px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text);
+  }
+  h3 {
+    font-size: 17px;
+    margin: 28px 0 12px 0;
+    color: var(--accent);
+  }
+  h4 {
+    font-size: 15px;
+    margin: 18px 0 8px 0;
+    color: var(--text);
+  }
+  p { margin: 10px 0; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 16px 0;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+    min-width: 720px;
+  }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: var(--surface-2);
+    color: var(--accent);
+    font-weight: 600;
+    position: sticky; top: 0;
+  }
+  tr:hover td { background: var(--surface); }
+  td:first-child { color: var(--text); font-weight: 600; }
+  td code { font-size: 12px; }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+    color: var(--accent);
+    font-family: "Consolas", "Courier New", monospace;
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 13px;
+    color: var(--code-text);
+    font-family: "Consolas", "Courier New", monospace;
+    line-height: 1.6;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.danger { border-left-color: var(--danger); }
+  .callout.ok { border-left-color: var(--ok); }
+  .callout-title { font-weight: 600; margin-bottom: 6px; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    margin-right: 4px;
+  }
+  .tag.ok { background: rgba(52,211,153,0.15); color: var(--ok); }
+  .tag.warn { background: rgba(251,191,36,0.15); color: var(--warn); }
+  .tag.danger { background: rgba(248,113,113,0.15); color: var(--danger); }
+  .tag.p0 { background: rgba(52,211,153,0.15); color: var(--ok); }
+  .tag.p1 { background: rgba(79,209,197,0.15); color: var(--accent); }
+  .tag.p2 { background: rgba(251,191,36,0.15); color: var(--warn); }
+  .tag.perm-r { background: rgba(52,211,153,0.15); color: var(--ok); }
+  .tag.perm-w { background: rgba(251,191,36,0.15); color: var(--warn); }
+  .tag.perm-d { background: rgba(248,113,113,0.15); color: var(--danger); }
+
+  /* 里程碑时间线 */
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .milestone {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 13px;
+  }
+  .milestone .ms-tag {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+  .milestone h5 { margin: 4px 0 4px 0; font-size: 14px; color: var(--text); }
+  .milestone p { margin: 4px 0; font-size: 12px; color: var(--text-dim); }
+
+  /* 工具卡片 */
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .tool-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+  }
+  .tool-card h5 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: var(--accent);
+    font-family: "Consolas", monospace;
+  }
+  .tool-card .prio { font-size: 11px; margin-bottom: 6px; }
+  .tool-card .desc { font-size: 12px; color: var(--text-dim); margin: 6px 0; }
+  .tool-card .meta-row { font-size: 11px; color: var(--text-dim); margin: 2px 0; }
+
+  .conclusion {
+    background: linear-gradient(135deg, rgba(79,209,197,0.08), rgba(246,135,179,0.08));
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin-top: 32px;
+  }
+  .conclusion h3 { margin-top: 0; }
+
+  .file-tree {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    color: var(--code-text);
+    line-height: 1.7;
+  }
+  .file-tree .dir { color: var(--accent); }
+  .file-tree .file { color: var(--code-text); }
+  .file-tree .cmt { color: var(--text-dim); }
+
+  .checklist li {
+    list-style: none;
+    margin: 4px 0;
+    padding-left: 4px;
+  }
+  .checklist li::before {
+    content: "☐";
+    color: var(--warn);
+    margin-right: 8px;
+    font-size: 16px;
+  }
+
+  .risk-matrix td.p-low { color: var(--ok); }
+  .risk-matrix td.p-mid { color: var(--warn); }
+  .risk-matrix td.p-high { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>v0.0.19 工具层实化可执行报告</h1>
+  <div class="meta">
+    <span>项目：Q-agent</span>
+    <span>类型：综合仲裁 agent 输出</span>
+    <span>日期：2026-06-29</span>
+    <span>来源：7 领域 agent 并行 + 1 综合 agent 仲裁</span>
+    <span>归档：memory/方案/方案_2026-06-29_1530_v0.0.19工具层实化可执行报告.md</span>
+  </div>
+</header>
+
+<div class="toc">
+  <h3>目录（12 章 + 2 附录）</h3>
+  <div class="toc-grid">
+    <div>
+      <ul>
+        <li><a href="#sec1">一、执行总览</a></li>
+        <li><a href="#sec2">二、模块清单与文件结构</a></li>
+        <li><a href="#sec3">三、工具注册与协议设计</a></li>
+        <li><a href="#sec4">四、9 个工具实现规范</a></li>
+      </ul>
+    </div>
+    <div>
+      <ul>
+        <li><a href="#sec5">五、安全与审批实现</a></li>
+        <li><a href="#sec6">六、UI 集成方案</a></li>
+        <li><a href="#sec7">七、持久化层扩展</a></li>
+        <li><a href="#sec8">八、编排层接通预览（v0.0.20）</a></li>
+      </ul>
+    </div>
+    <div>
+      <ul>
+        <li><a href="#sec9">九、测试计划</a></li>
+        <li><a href="#sec10">十、打包与发布</a></li>
+        <li><a href="#sec11">十一、风险与未决项</a></li>
+        <li><a href="#sec12">十二、执行顺序建议</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="callout ok">
+  <div class="callout-title">调研协作方式</div>
+  <p>本报告由 <b>7 个领域 agent 并行讨论</b>（6.1 命名 / 6.2 超时 / 6.3 结果治理 / 6.4 审批 / 6.5 UI / 6.6 撤销 / 6.7 架构）+ <b>1 个综合仲裁 agent 汇总</b>形成。6.4 agent 异常未产出，由人类编辑补齐。所有决策标注置信度，最终归档为 v0.0.19 落地方案。</p>
+</div>
+
+<h2 id="sec1">一、执行总览</h2>
+
+<h3>1.1 v0.0.19 范围确认</h3>
+<p>v0.0.19 的核心目标是<b>把工具层从骨架实化为可被编排层调用的 9 个真实工具</b>，同时完成安全、审批、UI 反馈、持久化四条支撑线。P0/P1/P2 全做，不留 P3 到 v0.0.20——v0.0.20 只做编排层接通，不再加新工具。</p>
+
+<div class="tool-grid">
+  <div class="tool-card">
+    <h5>file_read</h5>
+    <div class="prio"><span class="tag p0">P0</span> <span class="tag perm-r">read_only</span></div>
+    <div class="desc">读取文本文件内容</div>
+    <div class="meta-row">超时 15s · 不确认</div>
+  </div>
+  <div class="tool-card">
+    <h5>file_write</h5>
+    <div class="prio"><span class="tag p0">P0</span> <span class="tag perm-w">write</span></div>
+    <div class="desc">写入文件（覆盖）</div>
+    <div class="meta-row">超时 10s · 需确认</div>
+  </div>
+  <div class="tool-card">
+    <h5>file_list_dir</h5>
+    <div class="prio"><span class="tag p0">P0</span> <span class="tag perm-r">read_only</span></div>
+    <div class="desc">列目录（不递归）</div>
+    <div class="meta-row">超时 15s · 不确认</div>
+  </div>
+  <div class="tool-card">
+    <h5>file_move</h5>
+    <div class="prio"><span class="tag p1">P1</span> <span class="tag perm-d">destructive</span></div>
+    <div class="desc">移动/重命名</div>
+    <div class="meta-row">超时 10s · 需确认</div>
+  </div>
+  <div class="tool-card">
+    <h5>search_content</h5>
+    <div class="prio"><span class="tag p0">P0</span> <span class="tag perm-r">read_only</span></div>
+    <div class="desc">正则搜索文件内容</div>
+    <div class="meta-row">超时 15s · 不确认</div>
+  </div>
+  <div class="tool-card">
+    <h5>search_glob</h5>
+    <div class="prio"><span class="tag p0">P0</span> <span class="tag perm-r">read_only</span></div>
+    <div class="desc">glob 模式查文件名</div>
+    <div class="meta-row">超时 15s · 不确认</div>
+  </div>
+  <div class="tool-card">
+    <h5>exec_shell</h5>
+    <div class="prio"><span class="tag p0">P0</span> <span class="tag perm-d">destructive</span></div>
+    <div class="desc">执行 shell 命令</div>
+    <div class="meta-row">超时 120s · 每次确认</div>
+  </div>
+  <div class="tool-card">
+    <h5>web_get</h5>
+    <div class="prio"><span class="tag p1">P1</span> <span class="tag perm-r">read_only</span></div>
+    <div class="desc">HTTP GET 白名单</div>
+    <div class="meta-row">超时 30s · URL 白名单</div>
+  </div>
+  <div class="tool-card">
+    <h5>web_fetch</h5>
+    <div class="prio"><span class="tag p2">P2</span> <span class="tag perm-r">read_only</span></div>
+    <div class="desc">抓网页转 markdown</div>
+    <div class="meta-row">超时 30s · 1MB 截断</div>
+  </div>
+</div>
+
+<h3>1.2 工作量估算</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>维度</th><th>数量</th></tr></thead>
+<tbody>
+<tr><td>新增模块（.py）</td><td>14</td></tr>
+<tr><td>扩展模块（.py）</td><td>5（registry / safety / executor / persistence / chat_page）</td></tr>
+<tr><td>新建测试文件</td><td>9</td></tr>
+<tr><td>预计 commit 节数</td><td>8</td></tr>
+<tr><td>预计测试用例数</td><td>~70（happy-path 27 + 拦截 18 + UI/持久化/撤销 25）</td></tr>
+<tr><td>预计工时</td><td>单人 3-4 个工作日</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>1.3 关键里程碑顺序</h3>
+<div class="timeline">
+  <div class="milestone">
+    <span class="ms-tag">M1</span>
+    <h5>协议层</h5>
+    <p>registry 扩展 + ToolSpec + ExternalToolSource Protocol</p>
+  </div>
+  <div class="milestone">
+    <span class="ms-tag">M2</span>
+    <h5>安全层</h5>
+    <p>敏感文件 / 内容嗅探 / URL 白名单 / SSRF</p>
+  </div>
+  <div class="milestone">
+    <span class="ms-tag">M3</span>
+    <h5>9 工具实装</h5>
+    <p>按 P0 → P1 → P2 分批</p>
+  </div>
+  <div class="milestone">
+    <span class="ms-tag">M4</span>
+    <h5>持久化层</h5>
+    <p>tool_calls + tool_audit 两表 + 落盘</p>
+  </div>
+  <div class="milestone">
+    <span class="ms-tag">M5</span>
+    <h5>审批与权限</h5>
+    <p>弹窗 + 三级权限 + 风险知情</p>
+  </div>
+  <div class="milestone">
+    <span class="ms-tag">M6</span>
+    <h5>UI 反馈</h5>
+    <p>ToolBubble + ChatPage 挂载 + 历史 tab</p>
+  </div>
+  <div class="milestone">
+    <span class="ms-tag">M7</span>
+    <h5>撤销栈</h5>
+    <p>写前快照 + git 兜底</p>
+  </div>
+  <div class="milestone">
+    <span class="ms-tag">M8</span>
+    <h5>打包发布</h5>
+    <p>PyInstaller + .exe + README</p>
+  </div>
+</div>
+
+<h2 id="sec2">二、模块清单与文件结构</h2>
+
+<h3>2.1 新增文件（14 个）</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>路径</th><th>职责</th><th>新建/扩展</th></tr></thead>
+<tbody>
+<tr><td><code>q_agent/tools/base.py</code></td><td>ToolMeta 扩展 + ToolSpec dataclass + ExternalToolSource Protocol</td><td>扩展</td></tr>
+<tr><td><code>q_agent/tools/registry.py</code></td><td>@tool 装饰器签名扩展 + lookup_spec</td><td>扩展</td></tr>
+<tr><td><code>q_agent/tools/spec.py</code></td><td>ToolSpec / ExternalToolSource Protocol 完整定义</td><td>新建</td></tr>
+<tr><td><code>q_agent/tools/safety.py</code></td><td>check_sensitive / check_url / check_ssrf / sniff_secret_content</td><td>扩展</td></tr>
+<tr><td><code>q_agent/tools/executor.py</code></td><td>超时 + 并发标记 + permission_level + 落盘 + 审计</td><td>扩展</td></tr>
+<tr><td><code>q_agent/tools/approval.py</code></td><td>审批缓存 + 三级权限判定 + args_hash</td><td>新建</td></tr>
+<tr><td><code>q_agent/tools/audit.py</code></td><td>审计日志写入 tool_audit 表</td><td>新建</td></tr>
+<tr><td><code>q_agent/tools/results.py</code></td><td>落盘管理（call_id + .txt + .meta.json + 清理）</td><td>新建</td></tr>
+<tr><td><code>q_agent/tools/budget.py</code></td><td>三档分级降级（L1/L2/L3）</td><td>新建</td></tr>
+<tr><td><code>q_agent/tools/undo.py</code></td><td>写前快照 + git 兜底 + 撤销栈</td><td>新建</td></tr>
+<tr><td><code>q_agent/tools/files.py</code></td><td>file_read / write / list_dir / move 4 工具</td><td>新建</td></tr>
+<tr><td><code>q_agent/tools/search.py</code></td><td>search_content / glob 2 工具</td><td>新建</td></tr>
+<tr><td><code>q_agent/tools/exec.py</code></td><td>exec_shell 工具（含 long_running）</td><td>新建</td></tr>
+<tr><td><code>q_agent/tools/web.py</code></td><td>web_get / fetch 2 工具（URL 白名单 + SSRF）</td><td>新建</td></tr>
+<tr><td><code>q_agent/ui/tool_bubble.py</code></td><td>ToolBubble(QFrame) 折叠展开气泡</td><td>新建</td></tr>
+<tr><td><code>q_agent/ui/approval_dialog.py</code></td><td>审批弹窗 + 永不沙箱风险知情弹窗</td><td>新建</td></tr>
+<tr><td><code>q_agent/ui/tool_history_window.py</code></td><td>工具历史独立窗口</td><td>新建</td></tr>
+<tr><td><code>q_agent/orchestrator/persistence.py</code></td><td>增加 tool_calls + tool_audit schema</td><td>扩展</td></tr>
+<tr><td><code>q_agent/ui/pages/chat_page.py</code></td><td>一行 addWidget 挂载 ToolBubble + 信号连接</td><td>最小侵入扩展</td></tr>
+<tr><td><code>q_agent/data/sensitive.txt</code></td><td>用户自定义敏感文件 glob 清单</td><td>新建</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>2.2 既有模块零改动承诺</h3>
+<div class="callout warn">
+  <div class="callout-title">按 CLAUDE.md 第二十一节模块化原则</div>
+  <p>以下既有模块<b>永不动其类继承 / objectName / 公开接口 / 内部结构</b>：</p>
+  <ul>
+    <li>MainWindow / Sidebar 4 tab / Toolbar / MenuBar / theme / icons</li>
+    <li>hardware_monitor / hardware_monitor_window / loading_dots</li>
+    <li>memory_page / settings_page / skills_page</li>
+    <li>orchestrator 全部 7 模块（v0.0.18 已完成骨架）</li>
+  </ul>
+  <p>唯一例外：<code>chat_page.py</code> 的<b>最小侵入扩展</b>——仅追加 3 行（addWidget + 信号 connect × 2），不改类继承 / objectName / 既有信号签名。符合"父容器一行挂载 + 一行信号槽连接"规范。</p>
+</div>
+
+<h2 id="sec3">三、工具注册与协议设计</h2>
+
+<h3>3.1 @tool 装饰器最终签名</h3>
+<pre><code># q_agent/tools/registry.py
+def tool(
+    name: str,
+    desc: str = "",
+    *,
+    version: str = "1.0.0",
+    timeout: float | None = None,            # None = 走工具类默认
+    long_running: bool = False,              # shell 类专用，True → 600s
+    concurrency_safe: bool = False,          # v0.0.19 全 False，预留
+    permission_level: PermissionLevel = "read_only",
+    needs_confirmation: bool | None = None,  # None = 按 permission_level 推导
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """装饰器：登记工具函数 + 元数据 + 协议字段。
+
+    推导规则：destructive→True / write→True / read_only→False
+    """</code></pre>
+
+<h3>3.2 ToolSpec / ExternalToolSource Protocol</h3>
+<pre><code># q_agent/tools/spec.py
+class ToolSpec:
+    """工具协议规范：内置 @tool 与外部 tool 源（MCP 等）统一形态。
+
+    v0.0.19 内置工具通过 ToolMeta.to_spec() 转换；
+    v0.0.21+ MCP 外部源直接实现 ExternalToolSource Protocol 返回 ToolSpec 列表。
+    """
+    name: str
+    description: str
+    version: str
+    input_schema: str          # inspect.signature 字符串或 JSON Schema
+    output_schema: str
+    concurrency_safe: bool
+    permission_level: PermissionLevel
+    needs_confirmation: bool
+    timeout: float | None
+    call: Callable[..., str]
+
+
+@runtime_checkable
+class ExternalToolSource(Protocol):
+    """外部工具源协议：v0.0.21+ MCP 适配器实现此 Protocol 即可零侵入接入。"""
+    def list_tools(self) -> list[ToolSpec]: ...
+    def get_tool(self, name: str) -> ToolSpec | None: ...
+    def refresh(self) -> None: ...</code></pre>
+
+<h3>3.3 9 工具完整注册元数据</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>工具名</th><th>前缀</th><th>权限级</th><th>需确认</th><th>默认超时</th><th>long_running</th><th>concurrency_safe</th><th>version</th></tr></thead>
+<tbody>
+<tr><td><code>file_read</code></td><td>file_</td><td><span class="tag perm-r">read_only</span></td><td>否</td><td>15s</td><td>False</td><td>False</td><td>1.0.0</td></tr>
+<tr><td><code>file_write</code></td><td>file_</td><td><span class="tag perm-w">write</span></td><td>是</td><td>10s</td><td>False</td><td>False</td><td>1.0.0</td></tr>
+<tr><td><code>file_list_dir</code></td><td>file_</td><td><span class="tag perm-r">read_only</span></td><td>否</td><td>15s</td><td>False</td><td>False</td><td>1.0.0</td></tr>
+<tr><td><code>file_move</code></td><td>file_</td><td><span class="tag perm-d">destructive</span></td><td>是</td><td>10s</td><td>False</td><td>False</td><td>1.0.0</td></tr>
+<tr><td><code>search_content</code></td><td>search_</td><td><span class="tag perm-r">read_only</span></td><td>否</td><td>15s</td><td>False</td><td>False</td><td>1.0.0</td></tr>
+<tr><td><code>search_glob</code></td><td>search_</td><td><span class="tag perm-r">read_only</span></td><td>否</td><td>15s</td><td>False</td><td>False</td><td>1.0.0</td></tr>
+<tr><td><code>exec_shell</code></td><td>exec_</td><td><span class="tag perm-d">destructive</span></td><td>是（每次）</td><td>120s</td><td>可选 True→600s</td><td>False</td><td>1.0.0</td></tr>
+<tr><td><code>web_get</code></td><td>web_</td><td><span class="tag perm-r">read_only</span></td><td>否（白名单）</td><td>30s</td><td>False</td><td>False</td><td>1.0.0</td></tr>
+<tr><td><code>web_fetch</code></td><td>web_</td><td><span class="tag perm-r">read_only</span></td><td>否（白名单）</td><td>30s</td><td>False</td><td>False</td><td>1.0.0</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="sec4">四、9 个工具实现规范</h2>
+
+<h3>4.1 file_read</h3>
+<pre><code>@tool(
+    name="file_read",
+    desc=(
+        "读取文本文件内容并返回字符串。"
+        "何时用：需要查看源代码、配置文件、文档内容时。"
+        "何时不用：读取二进制文件、超过 1MB 的大文件、敏感凭证文件。"
+        "参数约束：path 绝对路径或相对 cwd；命中敏感清单返回 PermissionError。"
+        "返回格式：文件全文（超 2000 字符触发预算降级）。"
+    ),
+    version="1.0.0",
+    timeout=15.0,
+    permission_level="read_only",
+)
+def file_read(path: str, encoding: str = "utf-8") -> str:
+    check_path(path)
+    check_sensitive(path)  # 命中 .env/.pem/id_rsa/credentials.json 等拦截
+    p = Path(path)
+    if not p.exists():
+        return _error_json("FileNotFound", f"文件不存在: {path}")
+    if p.stat().st_size > 1_000_000:
+        return _error_json("FileTooLarge", f"文件超过 1MB: {p.stat().st_size} bytes")
+    return p.read_text(encoding=encoding)</code></pre>
+
+<p><b>错误回喂 JSON 格式</b>（所有工具统一）：</p>
+<pre><code>{"error": "FileNotFound", "message": "文件不存在: /foo/bar.py", "recoverable": true}</code></pre>
+<p><code>recoverable: true</code> = LLM 可自愈重试；<code>recoverable: false</code> = PermissionError 硬拦截零重试。</p>
+
+<h3>4.2 file_write</h3>
+<pre><code>@tool(
+    name="file_write",
+    desc=(
+        "将字符串内容写入文件（覆盖模式）。"
+        "何时用：创建新文件、修改源代码、生成配置文件。"
+        "何时不用：追加内容、写二进制。"
+        "参数约束：path + content；命中敏感文件或内容含 PRIVATE KEY/AKIA 模式拒绝。"
+        "返回格式：写入字节数 + 落盘备份路径。"
+    ),
+    version="1.0.0",
+    timeout=10.0,
+    permission_level="write",
+)
+def file_write(path: str, content: str, encoding: str = "utf-8") -> str:
+    check_path(path)
+    check_sensitive(path)
+    _sniff_secret_content(content)  # 命中 PRIVATE KEY/AKIA[0-9A-Z]{16} 等拒绝
+    backup = snapshot_before_write(path)  # 写前快照
+    Path(path).write_text(content, encoding=encoding)
+    return f"写入 {len(content.encode(encoding))} bytes; backup={backup}"</code></pre>
+<p><b>撤销策略</b>：写前快照备份到 <code>~/.q-agent/snapshots/{call_id}/</code>，undo 栈容量 20。</p>
+
+<h3>4.3 file_list_dir / 4.4 file_move / 4.5 search_content / 4.6 search_glob</h3>
+<p>四个工具实现规范相似——逐个用 <code>@tool</code> 装饰器注册，附完整 desc 四要素模板，走 safety.check_path + 权限级判定。file_move 是 destructive 级，需写前快照备份原文件 + undo 栈维护。</p>
+
+<h3>4.7 exec_shell</h3>
+<pre><code>@tool(
+    name="exec_shell",
+    desc=(
+        "执行 shell 命令（非交互、捕获 stdout/stderr）。"
+        "何时用：运行测试、跑构建、查 git 状态、装依赖（在用户授权后）。"
+        "何时不用：长时间运行的服务进程、交互输入命令、批量删除（危险）。"
+        "参数约束：cmd 为 list[str] 禁 shell=True；long_running=True 时超时 600s。"
+        "返回格式：returncode + stdout（前 2000 字符）+ stderr（前 500 字符）。"
+    ),
+    version="1.0.0",
+    timeout=120.0,
+    long_running=False,
+    permission_level="destructive",
+    needs_confirmation=True,  # 每次都问，destructive 永不缓存
+)
+def exec_shell(cmd: list[str], cwd: str | None = None, long_running: bool = False) -> str:
+    from q_agent.tools.executor import execute_shell
+    timeout = 600.0 if long_running else 120.0
+    cp = execute_shell(cmd, cwd=cwd, timeout=timeout)
+    out = cp.stdout[:2000]
+    err = cp.stderr[:500]
+    return f"returncode={cp.returncode}\nstdout:\n{out}\nstderr:\n{err}"</code></pre>
+
+<h3>4.8 web_get</h3>
+<pre><code>@tool(
+    name="web_get",
+    desc=(
+        "对白名单域名发起 HTTP GET，返回原始响应体（前 2000 字符）。"
+        "何时用：拉取 API JSON、查询文档站、检查连通性。"
+        "何时不用：抓取 HTML 转 markdown（用 web_fetch）、上传数据、访问私网。"
+        "参数约束：url 必须 HTTPS 且域名在白名单；私网段拒绝（SSRF 防护）。"
+        "返回格式：status_code + body 前 2000 字符。"
+    ),
+    version="1.0.0",
+    timeout=30.0,
+    permission_level="read_only",
+)
+def web_get(url: str) -> str:
+    check_url(url)   # HTTPS + 域名白名单
+    check_ssrf(url)  # 私网段拒绝
+    with urllib.request.urlopen(url, timeout=30) as r:
+        body = r.read(1_000_000).decode("utf-8", errors="ignore")
+    return f"status={r.status}\nbody:\n{body[:2000]}"</code></pre>
+
+<p><b>URL 白名单</b>（v0.0.19 内置 6 项，用户可在 settings 追加）：</p>
+<pre><code>URL_ALLOWLIST = {
+    "pypi.org", "github.com", "raw.githubusercontent.com",
+    "huggingface.co", "docs.python.org", "localhost:11434",  # Ollama
+}</code></pre>
+
+<h3>4.9 web_fetch</h3>
+<p>同 web_get 安全约束，用标准库 <code>html.parser.HTMLParser</code> 抽取文本转 markdown，<b>不引入 markdown 第三方库</b>（零依赖硬规则），1MB 截断。</p>
+
+<h2 id="sec5">五、安全与审批实现</h2>
+
+<h3>5.1 safety 模块扩展</h3>
+<pre><code># q_agent/tools/safety.py（在既有 check_command/check_path 基础上追加）
+
+SENSITIVE_PATTERNS: tuple[str, ...] = (
+    ".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_rsa.*",
+    "credentials.json", "credentials", ".aws/credentials",
+    ".git-credentials", "*.keystore", "*.p12",
+)
+SENSITIVE_USER_FILE = Path.home() / ".q-agent" / "sensitive.txt"
+
+SECRET_CONTENT_PATTERNS = (
+    re.compile(r"-----BEGIN (RSA |EC |OPENSSH |)PRIVATE KEY-----"),
+    re.compile(r"AKIA[0-9A-Z]{16}"),          # AWS access key
+    re.compile(r"ghp_[0-9A-Za-z]{36}"),       # GitHub PAT
+    re.compile(r"sk-[0-9A-Za-z]{20,}"),       # OpenAI key 风格
+)
+
+URL_ALLOWLIST = {"pypi.org", "github.com", "raw.githubusercontent.com",
+                 "huggingface.co", "docs.python.org", "localhost:11434"}
+
+PRIVATE_RANGES = (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16,
+                  127.0.0.0/8, 169.254.0.0/16, ::1/128, fc00::/7)
+
+def check_sensitive(path: str) -> None: ...   # 命中 → PermissionError
+def sniff_secret_content(content: str) -> None: ...  # 写入嗅探
+def check_url(url: str) -> None: ...           # HTTPS + 白名单
+def check_ssrf(url: str) -> None: ...          # 私网段拒绝</code></pre>
+
+<h3>5.2 审批弹窗 widget</h3>
+<pre><code># q_agent/ui/approval_dialog.py
+class ApprovalDialog(QDialog):
+    """工具调用审批弹窗：auto / confirm / deny 三档。
+    destructive 永不缓存，每次必弹；
+    write 同会话相同 args_hash 缓存一次；
+    read_only 不弹。"""
+    approved = Signal(str)   # "always" / "once" / "deny"
+
+class SandboxRiskDialog(QDialog):
+    """永不沙箱风险知情一次性弹窗。
+    首次使用 shell 类工具前显示，勾选"我已了解"后写入 settings.json，
+    后续启动不再出现。"""
+    acknowledged = Signal()</code></pre>
+
+<h3>5.3 永不沙箱风险知情流程</h3>
+<pre><code># q_agent/tools/approval.py
+SETTINGS_FILE = Path.home() / ".q-agent" / "settings.json"
+
+def needs_sandbox_risk_ack() -> bool:
+    """首次使用 shell 前检查 settings 是否已确认。"""
+    if not SETTINGS_FILE.exists(): return True
+    data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    return not data.get("sandbox_risk_acked", False)
+
+def ack_sandbox_risk() -> None:
+    """写入 settings.json，后续启动不再显示。"""
+    ...
+
+def args_hash(tool_name: str, args: tuple, kwargs: dict) -> str:
+    """同会话缓存键：tool_name + 参数指纹（SHA256 前 16 字符）。"""
+    ...</code></pre>
+
+<h2 id="sec6">六、UI 集成方案</h2>
+
+<h3>6.1 ToolBubble widget</h3>
+<pre><code># q_agent/ui/tool_bubble.py
+class ToolBubble(QFrame):
+    """Claude Code 风格折叠展开工具气泡。
+
+    4 状态：执行中（旋转齿轮 #4A9FFA）/ 成功（圆勾 #3FB950）
+           失败（圆叉 #F85149）/ 取消（灰圈 #8B949E）
+    默认折叠 28px，展开最大 240px 滚动，QPropertyAnimation 200ms。
+    模块化：独立 widget，ChatPage 一行 addWidget 挂载。
+    """
+    tool_call_started = Signal(str)
+    tool_call_finished = Signal(str, str, str)  # tool_name, status, output_path</code></pre>
+
+<p><b>QSS 追加</b>（写入 theme.py 既有 QSS 末尾，不修改既有选择器）：</p>
+<pre><code>QFrame#ToolBubble {
+    background: #F0F2F5;
+    border: 1px solid #D0D7DE;
+    border-radius: 6px;
+}
+QFrame#ToolBubble:hover { border: 1px solid #4A9FFA; }</code></pre>
+
+<h3>6.2 ChatPage 一行挂载（最小侵入）</h3>
+<pre><code># q_agent/ui/pages/chat_page.py（最小侵入扩展）
+from q_agent.ui.tool_bubble import ToolBubble
+self.tool_bubble = ToolBubble()
+self.message_layout.addWidget(self.tool_bubble)
+# 信号连接（v0.0.20 编排层接通时实际触发）：
+# self.chat_worker.tool_call_started.connect(self.tool_bubble.on_started)
+# self.chat_worker.tool_call_finished.connect(self.tool_bubble.on_finished)</code></pre>
+<p>仅追加 3 行，不改类继承、不改 objectName、不改既有信号签名。</p>
+
+<h3>6.3 工具历史独立窗口</h3>
+<p>新建 <code>q_agent/ui/tool_history_window.py</code>，<b>作为独立浮动窗口</b>实现（参照 hardware_monitor_window 模式），通过 MenuBar 新增菜单项"工具历史"打开——避免侵入既有 Sidebar 4 tab 结构。从 sqlite tool_calls 表重建时间线，支持按 tool_name / status 筛选。</p>
+
+<h2 id="sec7">七、持久化层扩展</h2>
+
+<h3>7.1 tool_calls + tool_audit 表 schema</h3>
+<pre><code>-- q_agent/orchestrator/persistence.py 追加建表语句
+
+CREATE TABLE IF NOT EXISTS tool_calls (
+    call_id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    message_id TEXT,
+    tool_name TEXT NOT NULL,
+    input_json TEXT,              -- 完整输入参数 JSON
+    output_text TEXT,             -- 截断后输出（2000 字符）
+    output_path TEXT,             -- 落盘完整输出路径
+    status TEXT NOT NULL,         -- success / failed / cancelled / denied
+    error_kind TEXT,              -- FileNotFound / PermissionError / Timeout / HTTPError
+    started_at TEXT NOT NULL,     -- ISO8601
+    duration_ms INTEGER,
+    last_accessed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id);
+CREATE INDEX IF NOT EXISTS idx_tool_calls_started ON tool_calls(started_at);
+
+CREATE TABLE IF NOT EXISTS tool_audit (
+    audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    call_id TEXT NOT NULL,
+    tool_name TEXT NOT NULL,
+    permission_level TEXT NOT NULL,
+    args_hash TEXT NOT NULL,
+    approval_mode TEXT,           -- once / always / deny / auto
+    status TEXT NOT NULL,
+    error_kind TEXT,
+    started_at TEXT NOT NULL,
+    input_summary TEXT,           -- 摘要，不记完整明文
+    output_summary TEXT,
+    FOREIGN KEY (call_id) REFERENCES tool_calls(call_id)
+);</code></pre>
+
+<h3>7.2 落盘目录结构</h3>
+<div class="file-tree">
+<span class="dir">~/.q-agent/</span><br>
+├── <span class="file">settings.json</span>              <span class="cmt"># sandbox_risk_acked 等用户设置</span><br>
+├── <span class="file">sensitive.txt</span>              <span class="cmt"># 用户自定义敏感文件 glob</span><br>
+├── <span class="file">q-agent.db</span>                 <span class="cmt"># sqlite 持久化</span><br>
+├── <span class="dir">tool-results/</span><br>
+│   └── <span class="dir">{session_id}/</span><br>
+│       ├── <span class="file">{call_id}.txt</span>      <span class="cmt"># 完整输出</span><br>
+│       └── <span class="file">{call_id}.meta.json</span> <span class="cmt"># 元数据</span><br>
+└── <span class="dir">snapshots/</span>                 <span class="cmt"># 撤销快照</span><br>
+    └── <span class="dir">{call_id}/</span><br>
+        └── <span class="file">{原文件名}</span>
+</div>
+
+<h3>7.3 ContextManager L1 与 tool_calls 联动</h3>
+<pre><code># 会话总预算 24000 字符超限时，按三档分级降级：
+# L1 占位：tool_call 输出替换为 "[tool:{tool_name} output 已落盘 {path}]"
+# L2 截断：保留前 200 + 后 200 字符
+# L3 摘要：调 LLM 生成 100 字摘要替换
+
+def compact_tool_outputs(self, session_id: str) -> None:
+    """会话总预算超限时，按 L1→L2→L3 逐档降级 tool_calls 输出。"""
+    rows = self.persistence.load_tool_calls(session_id)
+    total = sum(len(r["output_text"] or "") for r in rows)
+    if total <= 24000: return
+    for r in rows:
+        if total <= 24000: break
+        total -= len(r["output_text"] or "")
+        new_text = f"[tool:{r['tool_name']} output 已落盘 {r['output_path']}]"
+        self.persistence.update_tool_call_output(r["call_id"], new_text)
+        total += len(new_text)</code></pre>
+
+<h2 id="sec8">八、编排层接通预览（v0.0.20）</h2>
+
+<h3>8.1 v0.0.19 只做哪些</h3>
+<ul>
+  <li>工具层完整实装（9 工具 + 协议 + 安全 + 审批 + UI widget + 持久化 + 撤销）</li>
+  <li>ToolBubble widget 与信号通道建好但<b>不触发</b>（信号挂载注释掉）</li>
+  <li>tool_calls / tool_audit 表建好但<b>只写不读</b>（编排层尚未接通）</li>
+  <li>ExternalToolSource Protocol 定义好但<b>无实现</b>（v0.0.21+ MCP 才用）</li>
+  <li>dispatcher 不动（v0.0.18 已完成骨架）</li>
+</ul>
+
+<h3>8.2 v0.0.20 接通编排层时改什么</h3>
+<ul>
+  <li><code>dispatcher.py</code>：解析 LLM 输出 json block 后，调 <code>lookup_spec(name)</code> 拿 ToolSpec → 走 <code>execute_tool_with_lifecycle</code> 全链路</li>
+  <li><code>loop.py</code>：单 turn 8 次工具调用上限 + doom_loop 3 次重复检测接通</li>
+  <li><code>chat_worker.py</code>：发射 <code>tool_call_started</code> / <code>tool_call_finished</code> 信号 → ChatPage 取消注释信号连接</li>
+  <li><code>context.py</code>：接通 <code>compact_tool_outputs</code> 三档降级</li>
+  <li><code>planner.py</code>：在规划阶段把 system prompt 工具段动态注入（双层 token 预算）</li>
+</ul>
+
+<h2 id="sec9">九、测试计划</h2>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>类别</th><th>用例数</th><th>覆盖范围</th></tr></thead>
+<tbody>
+<tr><td>happy-path</td><td>27</td><td>每工具 3 个用例（正常 / 边界 / 中文）</td></tr>
+<tr><td>safety 拦截</td><td>18</td><td>敏感文件 / 内容嗅探 / URL 白名单 / SSRF / 项目根 / 危险命令</td></tr>
+<tr><td>审批弹窗</td><td>6</td><td>read_only 不弹 / write 缓存 / destructive 每次弹 / deny / 风险知情</td></tr>
+<tr><td>落盘 + 预算</td><td>5</td><td>2000 字符截断 / 落盘 / L1/L2/L3 三档降级</td></tr>
+<tr><td>撤销栈</td><td>4</td><td>写前快照 / move 快照 / undo 恢复 / 栈满滚动</td></tr>
+<tr><td>UI</td><td>5</td><td>4 状态切换 / 动画 / 挂载 / 历史窗口 / QSS</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <div class="callout-title">测试硬要求</div>
+  <p>所有用例使用 <code>tmp_path</code> fixture，禁止以项目根为 cwd；敏感文件测试在 <code>tmp_path</code> 下构造 mock 清单。</p>
+</div>
+
+<h2 id="sec10">十、打包与发布</h2>
+
+<h3>10.1 PyInstaller 注意事项</h3>
+<div class="callout ok">
+  <div class="callout-title">零新增第三方依赖</div>
+  <p>v0.0.19 无新增第三方依赖（web 工具用标准库 <code>urllib</code> + <code>html.parser</code>）。打包命令<b>严格从 <code>安装包/README.md</code> 标准模板复制</b>，禁止手敲。</p>
+</div>
+<ul>
+  <li>新增 <code>q_agent/data/sensitive.txt</code> 是用户运行时配置，不进 .exe</li>
+  <li>UI 新增 4 个 SVG 图标（tool-pending/success/failed/cancelled）放入 <code>q_agent/assets/icons/</code>，由 <code>scripts/generate_icons.py</code> 生成 + 更新 manifest.json</li>
+  <li>打包模板既有 <code>--add-data "q_agent/assets;q_agent/assets"</code> 自动包含，<b>无需修改模板</b></li>
+</ul>
+
+<h3>10.2 .exe 验证清单</h3>
+<ul class="checklist">
+  <li>双击 Q-agent.exe 启动无报错</li>
+  <li>4 tab + 工具历史菜单项正常</li>
+  <li>调用 file_read 读 安装包/README.md 成功</li>
+  <li>调用 exec_shell 触发审批弹窗 + 永不沙箱风险知情弹窗</li>
+  <li>调用 web_get 拉 pypi.org 成功</li>
+  <li>调用 file_write 写到 ~/.q-agent/test.txt 成功，落盘快照存在</li>
+  <li>工具历史窗口显示 5 条记录</li>
+  <li>关闭重启后工具历史仍可重建</li>
+</ul>
+
+<h3>10.3 安装包/README.md 版本历史追加</h3>
+<pre><code>| v0.0.18 | 2026-06-25 | 安装包/v0.0.18/Q-agent.exe | 编排层 7 模块骨架 |
+| v0.0.19 | 2026-06-29 | 安装包/v0.0.19/Q-agent.exe | 工具层 9 工具实化 + 安全/审批/UI/持久化/撤销 |</code></pre>
+<p>打包完成后删除 <code>安装包/v0.0.18/</code> 子目录，只保留 v0.0.19。</p>
+
+<h2 id="sec11">十一、风险与未决项</h2>
+
+<h3>11.1 置信度中/低的决策</h3>
+<div class="table-wrap">
+<table class="risk-matrix">
+<thead><tr><th>决策</th><th>置信度</th><th>风险</th><th>迭代策略</th></tr></thead>
+<tbody>
+<tr><td>单工具 2000 字符截断阈值</td><td class="p-mid">中</td><td>LLM 看到的输出可能不够</td><td>v0.0.20 实测调整，参数化到 settings.json</td></tr>
+<tr><td>会话总预算 24000 字符</td><td class="p-mid">中</td><td>与 ContextManager 4 级压缩交互未验证</td><td>v0.0.20 端到端压力测试</td></tr>
+<tr><td>单 turn 8 次工具调用上限</td><td class="p-mid">中</td><td>复杂任务可能不够</td><td>v0.0.20 实测调整，可配置</td></tr>
+<tr><td>URL 白名单初始 6 项</td><td class="p-low">低</td><td>用户实际需求可能更多</td><td>settings.json 追加机制 v0.0.19 内建</td></tr>
+<tr><td>web_fetch html→markdown 自实现</td><td class="p-mid">中</td><td>转换质量不如第三方库</td><td>优先保零依赖；质量差再评估</td></tr>
+<tr><td>撤销栈容量 20</td><td class="p-low">低</td><td>复杂编辑场景不够</td><td>滚动淘汰 + 落盘永久保留，可调</td></tr>
+<tr><td>concurrency_safe 全 False</td><td class="p-high">高</td><td>v0.0.19 串行无风险</td><td>v0.0.21+ 多线程时再标 True</td></tr>
+<tr><td>审批缓存粒度（args_hash）</td><td class="p-mid">中</td><td>同参数上下文不同可能误放行</td><td>destructive 永不缓存兜底</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>11.2 v0.0.19 实现时再定的技术细节</h3>
+<ul>
+  <li><code>call_id</code> 生成方式：uuid4().hex 还是 session_id + 序号？倾向 uuid4</li>
+  <li><code>args_hash</code> 用 SHA256 全 hex 还是前 16 字符？倾向前 16 字符</li>
+  <li>ToolBubble 展开动画用 maximumHeight 还是 maximumSize？倾向 maximumHeight</li>
+  <li>tool_calls 表清理策略：30 天按 started_at 还是 last_accessed_at？加 last_accessed_at 列</li>
+  <li>永不沙箱风险知情弹窗是否区分 shell 与 file_write？倾向首次"任何 destructive 工具"触发</li>
+  <li>撤销快照清理时机：会话结束清还是按容量滚动？倾向滚动保留最近 100 个 call_id</li>
+</ul>
+
+<h2 id="sec12">十二、执行顺序建议</h2>
+
+<p>按依赖关系排序，每里程碑一个 commit：</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>Commit</th><th>里程碑</th><th>主题</th><th>依赖</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><span class="tag" style="background:var(--accent);color:var(--bg);">M1</span></td><td>协议层（registry + spec）</td><td>无</td></tr>
+<tr><td>2</td><td><span class="tag" style="background:var(--accent);color:var(--bg);">M2</span></td><td>安全层（safety 扩展）</td><td>M1</td></tr>
+<tr><td>3</td><td><span class="tag" style="background:var(--accent);color:var(--bg);">M3</span></td><td>9 工具实装（P0→P1→P2）</td><td>M1 + M2</td></tr>
+<tr><td>4</td><td><span class="tag" style="background:var(--accent);color:var(--bg);">M4</span></td><td>持久化层（tool_calls + tool_audit）</td><td>M3</td></tr>
+<tr><td>5</td><td><span class="tag" style="background:var(--accent);color:var(--bg);">M5</span></td><td>审批与权限（弹窗 + 三级权限）</td><td>M3 + M4</td></tr>
+<tr><td>6</td><td><span class="tag" style="background:var(--accent);color:var(--bg);">M6</span></td><td>UI 反馈（ToolBubble + 挂载 + 历史）</td><td>M4 + M5</td></tr>
+<tr><td>7</td><td><span class="tag" style="background:var(--accent);color:var(--bg);">M7</span></td><td>撤销栈（写前快照 + git 兜底）</td><td>M3</td></tr>
+<tr><td>8</td><td><span class="tag" style="background:var(--accent);color:var(--bg);">M8</span></td><td>打包发布（PyInstaller + .exe）</td><td>M1-M7 全部</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Commit 1: M1 协议层</h3>
+<pre><code>feat(tools): 扩展 @tool 装饰器签名 + ToolSpec/ExternalToolSource Protocol
+
+- ToolMeta 扩展 version/timeout/long_running/concurrency_safe/permission_level/needs_confirmation
+- 新增 q_agent/tools/spec.py：ToolSpec dataclass + ExternalToolSource Protocol
+- registry 增加 lookup_spec()
+- 测试：test_registry.py 验证装饰器参数与 to_spec 转换</code></pre>
+
+<h3>Commit 3: M3 9 工具实装</h3>
+<pre><code>feat(tools): 实装 9 个工具 (file_read/write/list_dir/move + search_content/glob + exec_shell + web_get/fetch)
+
+- q_agent/tools/files.py / search.py / exec.py / web.py 4 个新模块
+- 全部走 @tool 装饰器，附完整 desc 四要素模板
+- 测试：test_files.py / test_search.py / test_exec.py / test_web.py</code></pre>
+<p><b>本 commit 较大，可拆为 4 个子 commit</b>（file/search/exec/web 各一）。</p>
+
+<h3>Commit 8: M8 打包发布</h3>
+<pre><code>chore(release): v0.0.19 打包 + 版本历史
+
+- 从 安装包/README.md 复制标准打包命令
+- 生成 安装包/v0.0.19/Q-agent.exe
+- 删除 安装包/v0.0.18/ 子目录
+- 更新 安装包/README.md 版本历史表
+- 更新 memory/项目指导文件.md 当前节点
+- 追加 ADR-NNN 到 memory/ADR架构决策记录.md
+- 追加 memory/思维导图数据.jsonl 一行 → python scripts/update_mindmap.py</code></pre>
+
+<div class="conclusion">
+  <h3>报告总结</h3>
+  <p><b>协作方式</b>：7 领域 agent 并行讨论 + 1 综合 agent 仲裁（6.4 agent 异常由人类编辑补齐）</p>
+  <p><b>v0.0.19 范围</b>：9 工具全做（P0/P1/P2），P3 代码执行因永不沙箱约束暂缓</p>
+  <p><b>核心架构</b>：@tool 装饰器扩展 5 参数 + ToolSpec/ExternalToolSource Protocol（为 v0.0.21+ MCP 铺路）+ safety 4 项扩展 + 审批三级权限 + ToolBubble 独立 widget + tool_calls/tool_audit 两表 + 撤销栈</p>
+  <p><b>关键约束遵守</b>：零第三方依赖（web_fetch 用标准库 html.parser）/ 既有模块零改动（仅 chat_page.py 3 行最小侵入）/ 永不沙箱 / PyInstaller 模板无需修改</p>
+  <p><b>8 commit 顺序</b>：M1 协议 → M2 安全 → M3 工具 → M4 持久化 → M5 审批 → M6 UI → M7 撤销 → M8 打包</p>
+  <p><b>下一步</b>：用户确认本报告后，按第十二节 8 个 commit 顺序开工，从 M1 协议层开始。</p>
+</div>
+
+</div>
+</body>
+</html>
